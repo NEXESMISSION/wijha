@@ -1050,10 +1050,30 @@
   }
   
   /* Video and Lessons Grid - Mobile */
-  div[style*="display: 'grid'"][style*="gridTemplateColumns: 'minmax(0, 2fr)"] {
+  div[style*="display: 'grid'"][style*="gridTemplateColumns: 'minmax(0, 2fr)"],
+  div[class*="course-video-lessons-grid"] {
     grid-template-columns: 1fr !important;
     gap: 1.5rem !important;
     margin-bottom: 1.5rem !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Video Player - First on Mobile */
+  div[class*="course-video-lessons-grid"] > div:first-child {
+    order: 1 !important;
+    width: 100% !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Lessons List - Second on Mobile */
+  div[class*="course-video-lessons-grid"] > div:last-child {
+    order: 2 !important;
+    width: 100% !important;
+    position: relative !important;
+    top: 0 !important;
+    max-height: none !important;
+    overflow-y: visible !important;
   }
   
   /* Prevent Stacking Issues - Add More Spacing */

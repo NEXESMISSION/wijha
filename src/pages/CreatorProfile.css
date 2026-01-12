@@ -400,12 +400,12 @@
   }
   
   div[style*="height: '500px'"] {
-    height: 100px !important; /* Much smaller on mobile - reduced from 140px */
-    border-radius: 1rem !important;
+    height: 50px !important; /* Very small on mobile - reduced by 10 times from original 500px */
+    border-radius: 0.5rem !important;
   }
   
   div[style*="height: '120px'"] {
-    height: 40px !important; /* Reduce gradient overlay height - was 60px */
+    height: 20px !important; /* Minimal gradient overlay height */
   }
   
   div[style*="fontSize: '2.5rem'"] {
