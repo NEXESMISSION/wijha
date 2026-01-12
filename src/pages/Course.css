@@ -68,10 +68,59 @@
   color: #666;
 }
 
+/* Desktop scaling - reduce by 20% */
+@media (min-width: 1024px) {
+  .browse-header {
+    margin-bottom: 2.4rem; /* 3rem * 0.8 */
+  }
+  
+  .browse-header h1 {
+    font-size: 2rem; /* 2.5rem * 0.8 */
+    margin-bottom: 0.4rem; /* 0.5rem * 0.8 */
+  }
+  
+  .browse-header p {
+    font-size: 0.88rem; /* 1.1rem * 0.8 */
+  }
+  
+  .courses-grid {
+    gap: 2rem; /* Keep good spacing even with desktop scaling */
+  }
+  
+  .course-card {
+    border-radius: 8px; /* 10px * 0.8 */
+  }
+  
+  .course-content {
+    padding: 1.2rem; /* 1.5rem * 0.8 */
+  }
+  
+  .course-content h3 {
+    font-size: 1rem; /* 1.25rem * 0.8 */
+    margin-bottom: 0.6rem; /* 0.75rem * 0.8 */
+  }
+  
+  .course-description {
+    font-size: 0.76rem; /* 0.95rem * 0.8 */
+    margin-bottom: 0.8rem; /* 1rem * 0.8 */
+  }
+  
+  .course-footer .price {
+    font-size: 1.2rem; /* 1.5rem * 0.8 */
+  }
+}
+
 .courses-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(2, 1fr); /* Exactly 2 columns on desktop */
+  gap: 1.5rem; /* Reduced gap - was 2.5rem */
+}
+
+/* For larger screens, maintain 2 columns but with more space */
+@media (min-width: 1400px) {
+  .courses-grid {
+    gap: 3rem; /* Even more space on very large screens */
+  }
 }
 
 .course-card-link {
@@ -649,5 +698,374 @@
     position: relative !important;
     top: 0 !important;
     max-height: none !important;
+  }
+}
+
+/* Mobile responsive for CourseBrowse */
+@media (max-width: 768px) {
+  .course-browse-container {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  /* Header - smaller */
+  .course-browse-container h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .course-browse-container p {
+    font-size: 0.875rem !important;
+  }
+  
+  /* Search bar container - smaller */
+  .course-browse-container > div[style*="background: 'linear-gradient"] {
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Search bar - smaller */
+  .course-browse-container input[type="text"] {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem 0.75rem 0.75rem 2.25rem !important;
+    border-radius: 0.5rem !important;
+  }
+  
+  /* Sidebar becomes full width on mobile - compact */
+  .courses-layout-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .courses-layout-responsive aside {
+    position: relative !important;
+    top: 0 !important;
+    max-height: none !important;
+    margin-bottom: 1rem;
+    border-radius: 0.75rem !important;
+    padding: 1rem !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+  
+  /* Category section - compact */
+  .courses-layout-responsive aside > div {
+    margin-bottom: 1rem !important;
+  }
+  
+  .courses-layout-responsive aside h3 {
+    font-size: 0.9375rem !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0.5rem 0;
+  }
+  
+  /* Mobile: Show dropdown toggle, hide original h3 */
+  .categories-dropdown-toggle {
+    display: flex !important;
+    margin-bottom: 0.75rem !important;
+    font-size: 0.9375rem !important;
+    padding: 0.625rem 0.75rem !important;
+    min-height: 44px;
+    border-radius: 0.5rem !important;
+  }
+  
+  .categories-section-mobile > h3 {
+    display: none !important;
+  }
+  
+  /* Mobile: Collapsible dropdown content */
+  .categories-dropdown-content {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    margin-bottom: 0 !important;
+    transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease !important;
+  }
+  
+  .categories-dropdown-content.open {
+    max-height: 1000px !important;
+    opacity: 1 !important;
+    margin-bottom: 0.75rem !important;
+  }
+}
+
+/* Desktop: Hide dropdown toggle, show original h3 */
+@media (min-width: 769px) {
+  .categories-dropdown-toggle {
+    display: none !important;
+  }
+  
+  .categories-section-mobile > h3 {
+    display: flex !important;
+  }
+  
+  .categories-dropdown-content {
+    max-height: none !important;
+    opacity: 1 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Category buttons - smaller but still touch-friendly */
+  .courses-layout-responsive aside button {
+    padding: 0.625rem 0.75rem !important;
+    font-size: 0.8125rem !important;
+    min-height: 40px;
+    margin-bottom: 0.375rem;
+    border-radius: 0.5rem !important;
+  }
+  
+  /* Subcategory buttons - indented */
+  .courses-layout-responsive aside button[style*="paddingRight"] {
+    padding-right: 1.5rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Level filter section - horizontal scroll */
+  .courses-layout-responsive aside > div:last-child > div {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 0.5rem;
+  }
+  
+  .courses-layout-responsive aside > div:last-child > div::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .courses-layout-responsive aside > div:last-child button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: auto;
+    padding: 0.625rem 1rem !important;
+  }
+  
+  /* Reset button - full width on mobile */
+  .courses-layout-responsive aside button[style*="background: 'linear-gradient"] {
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+    min-height: 44px;
+  }
+  
+  /* Courses grid - 2 columns on mobile with reduced gaps, larger boxes */
+  .courses-layout-responsive main > div[style*="grid"],
+  .courses-grid-mobile {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.875rem !important; /* Reduced gap - was 1.5rem */
+    padding: 0 0.25rem; /* Reduced side padding */
+  }
+  
+  /* Course cards - larger boxes, better spacing */
+  .courses-layout-responsive main a > div,
+  .courses-grid-mobile a > div {
+    border-radius: 1rem !important;
+    margin-bottom: 0.875rem !important; /* Reduced margin */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+  
+  /* Course card image - larger for better visibility */
+  .courses-layout-responsive main a > div > div[style*="height: '180px'"],
+  .courses-grid-mobile a > div > div[style*="height: '180px'"] {
+    height: 180px !important; /* Increased from 160px - larger image */
+  }
+  
+  /* Course card content - more padding for larger feel */
+  .courses-layout-responsive main a > div > div[style*="padding: '1.25rem'"],
+  .courses-grid-mobile a > div > div[style*="padding: '1.25rem'"] {
+    padding: 1.5rem !important; /* Increased padding - larger box feel */
+  }
+  
+  /* Course card title - much larger, very readable */
+  .courses-layout-responsive main a > div h3,
+  .courses-grid-mobile a > div h3 {
+    font-size: 1.125rem !important; /* Increased from 1rem - much easier to read */
+    margin-bottom: 0.875rem !important; /* More space below title */
+    line-height: 1.6 !important;
+    min-height: 3.6em !important; /* More space for 2 lines */
+    padding: 0.25rem 0 !important;
+    font-weight: 700 !important;
+  }
+  
+  /* Course card description - hidden on mobile to save space */
+  .courses-layout-responsive main a > div p[style*="color: '#6b7280'"],
+  .courses-grid-mobile a > div p[style*="color: '#6b7280'"] {
+    display: none !important;
+  }
+  
+  /* Course card meta info - larger, more readable */
+  .courses-layout-responsive main a > div > div[style*="fontSize: '0.875rem'"],
+  .courses-grid-mobile a > div > div[style*="fontSize: '0.875rem'"] {
+    font-size: 0.9375rem !important; /* Increased from 0.875rem - more readable */
+    margin-bottom: 0.875rem !important;
+    padding: 0.375rem 0 !important;
+    line-height: 1.5 !important;
+  }
+  
+  /* Course card footer - more padding, larger text */
+  .courses-layout-responsive main a > div > div[style*="display: 'flex'"]:last-child,
+  .courses-grid-mobile a > div > div[style*="display: 'flex'"]:last-child {
+    padding: 1.25rem 1.5rem !important; /* Increased padding */
+    font-size: 1rem !important; /* Increased from 0.9375rem - larger text */
+    margin-top: auto;
+    gap: 0.75rem !important;
+  }
+  
+  /* Course card price - larger and more readable */
+  .courses-layout-responsive main a > div strong,
+  .courses-grid-mobile a > div strong {
+    font-size: 1.375rem !important; /* Increased from 1.25rem - much easier to read */
+    font-weight: 700 !important;
+  }
+  
+  /* Category badge - better positioning and size */
+  .courses-layout-responsive main a > div > div[style*="position: 'absolute'"],
+  .courses-grid-mobile a > div > div[style*="position: 'absolute'"] {
+    top: 10px !important;
+    right: 10px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8125rem !important; /* Slightly larger */
+    line-height: 1.4 !important;
+  }
+}
+
+/* Desktop: Ensure 2 columns with good spacing */
+@media (min-width: 769px) {
+  .courses-layout-responsive main > div[style*="grid"],
+  .courses-grid-mobile {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.5rem !important; /* Reduced gap - was 2.5rem */
+    padding: 0 !important; /* Remove side padding on desktop */
+  }
+  
+  /* Larger boxes on desktop */
+  .courses-layout-responsive main a > div > div[style*="padding: '1.25rem'"],
+  .courses-grid-mobile a > div > div[style*="padding: '1.25rem'"] {
+    padding: 1.75rem !important; /* Larger padding on desktop */
+  }
+  
+  .courses-layout-responsive main a > div h3,
+  .courses-grid-mobile a > div h3 {
+    font-size: 1.25rem !important; /* Larger title on desktop */
+  }
+}
+
+/* Very large screens: Even more space */
+@media (min-width: 1400px) {
+  .courses-layout-responsive main > div[style*="grid"],
+  .courses-grid-mobile {
+    gap: 3rem !important; /* Maximum spacing on large screens */
+  }
+}
+
+/* Course Detail Mobile Responsive - Smaller */
+@media (max-width: 768px) {
+  /* Course Detail Container */
+  .course-detail-container {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  /* Course Header */
+  .course-detail-container > div[style*="maxWidth"] {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  /* Thumbnail Image */
+  .course-detail-container img[style*="height: '400px'"],
+  .course-detail-container img[style*="height: 400px"] {
+    height: 200px !important;
+  }
+  
+  /* Course Info - smaller */
+  .course-detail-container h1 {
+    font-size: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .course-detail-container p {
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Video and Content Grid - smaller gaps */
+  .course-video-lessons-grid,
+  .course-detail-content-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Video Player */
+  .course-video-lessons-grid > div:first-child {
+    order: 1;
+  }
+  
+  .course-video-lessons-grid > div:last-child {
+    order: 2;
+    position: relative !important;
+    top: 0 !important;
+    max-height: none !important;
+  }
+  
+  /* Lessons List */
+  .course-video-lessons-grid aside,
+  .course-detail-content-grid aside {
+    position: relative !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+  
+  /* Lesson Items - smaller */
+  .lesson-item {
+    padding: 0.75rem !important;
+    min-height: 48px;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Buttons - smaller */
+  .course-detail-container button {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 0.625rem;
+  }
+  
+  /* Stats - smaller */
+  .course-stats-bar {
+    flex-direction: column;
+    gap: 0.625rem !important;
+    padding: 0.75rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Comments - smaller */
+  .comments-section {
+    margin-top: 1.25rem !important;
+  }
+  
+  .comment-item {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Forms - smaller */
+  .comment-form textarea {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    min-height: 100px;
+    padding: 0.75rem !important;
+  }
+  
+  /* Rating Stars - smaller */
+  .rating-stars {
+    gap: 0.25rem !important;
+  }
+  
+  .star-btn {
+    font-size: 1.5rem !important;
+    min-width: 40px;
+    min-height: 40px;
   }
 }

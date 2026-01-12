@@ -449,12 +449,67 @@ body {
 }
 
 @media (min-width: 1024px) {
+  /* Desktop: Reduce all sizes by 20% using base font-size */
+  /* This scales all rem-based units by 20% */
+  html {
+    font-size: 80%; /* Base reduction - affects all rem units */
+  }
+  
+  /* Override specific large sizes */
   .hero-title {
-    font-size: 4rem;
+    font-size: 3.2rem !important; /* 4rem * 0.8 */
   }
   
   .section-title {
-    font-size: 3rem;
+    font-size: 2.4rem !important; /* 3rem * 0.8 */
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem !important; /* 1.25rem * 0.8 */
+  }
+  
+  .section-subtitle {
+    font-size: 0.9rem !important; /* 1.125rem * 0.8 */
+  }
+  
+  .navbar-container {
+    height: 4rem !important; /* 5rem * 0.8 */
+  }
+  
+  .navbar-logo {
+    height: 2.8rem !important; /* 3.5rem * 0.8 */
+  }
+  
+  .footer-logo {
+    height: 2.4rem !important; /* 3rem * 0.8 */
+  }
+  
+  /* Scale down buttons */
+  .btn-primary,
+  .btn-gradient,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    padding: 0.6rem 1.2rem !important; /* 0.75rem 1.5rem * 0.8 */
+    font-size: 0.875rem !important; /* 1rem * 0.875 */
+  }
+  
+  /* Scale down cards */
+  .card {
+    padding: 1.2rem !important; /* 1.5rem * 0.8 */
+  }
+  
+  /* Scale down forms */
+  .form-input,
+  .form-textarea {
+    padding: 0.6rem !important; /* 0.75rem * 0.8 */
+    font-size: 0.875rem !important;
+  }
+  
+  /* Scale down badges */
+  .badge {
+    padding: 0.2rem 0.6rem !important; /* 0.25rem 0.75rem * 0.8 */
+    font-size: 0.7rem !important; /* 0.875rem * 0.8 */
   }
 }
 

@@ -357,12 +357,12 @@ function CreateCourse() {
 
           <div className="form-group">
             <label className="form-label">العلامات (مفصولة بفواصل)</label>
-            <input
-              type="text"
-              name="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              placeholder="react, javascript, web"
+              <input
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleInputChange}
+                placeholder="react, javascript, web"
               className="form-input"
             />
           </div>
@@ -397,8 +397,8 @@ function CreateCourse() {
                     borderRadius: '0.5rem',
                     border: '2px solid #e5e7eb'
                   }}
-                />
-              </div>
+              />
+            </div>
             )}
             <small style={{
               fontSize: '0.875rem',

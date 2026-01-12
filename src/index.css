@@ -13,6 +13,60 @@ body {
   background-color: #f5f5f5;
 }
 
+/* Desktop: Reduce all sizes by 20% */
+@media (min-width: 1024px) {
+  /* Base font size reduction affects all rem units */
+  html {
+    font-size: 16px; /* Keep base at 16px */
+  }
+  
+  body {
+    font-size: 0.875rem; /* 14px - reduced from 16px by ~12.5% */
+  }
+  
+  /* Scale down headings */
+  h1 {
+    font-size: 2.4rem !important; /* Reduced by 20% */
+  }
+  
+  h2 {
+    font-size: 1.92rem !important;
+  }
+  
+  h3 {
+    font-size: 1.536rem !important;
+  }
+  
+  h4 {
+    font-size: 1.228rem !important;
+  }
+  
+  /* Scale down text elements */
+  p, span, div, a, button, input, textarea, select, label, li {
+    font-size: 0.875rem !important; /* Reduced by 12.5% */
+  }
+  
+  /* Scale down padding and margins in common patterns */
+  [style*="padding"] {
+    /* This will be handled by rem units */
+  }
+  
+  [style*="margin"] {
+    /* This will be handled by rem units */
+  }
+  
+  /* Scale down buttons */
+  button {
+    padding: 0.6rem 1.2rem !important; /* Reduced from 0.75rem 1.5rem */
+  }
+  
+  /* Scale down inputs */
+  input, textarea, select {
+    padding: 0.6rem !important; /* Reduced from 0.75rem */
+    font-size: 0.875rem !important;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

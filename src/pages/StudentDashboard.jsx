@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getStudentEnrollments, getProfile, updateProfile } from '../lib/api'
 import '../styles/design-system.css'
@@ -7,6 +7,7 @@ import './Dashboard.css'
 
 function StudentDashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -85,16 +86,57 @@ function StudentDashboard() {
     return badges[status] || badges.pending
   }
 
-  const filteredEnrollments = enrollments.filter(enrollment => {
+  // Group enrollments by course and keep only the most recent one per course
+  // If there's a rejected enrollment, prioritize it over others
+  const getLatestEnrollmentPerCourse = (enrollments) => {
+    const courseMap = new Map()
+    
+    enrollments.forEach(enrollment => {
+      const courseId = enrollment.courses?.id
+      if (!courseId) return
+      
+      const existing = courseMap.get(courseId)
+      
+      // If no existing enrollment, add this one
+      if (!existing) {
+        courseMap.set(courseId, enrollment)
+        return
+      }
+      
+      // If current is rejected, always use it (rejected takes priority)
+      if (enrollment.status === 'rejected') {
+        courseMap.set(courseId, enrollment)
+        return
+      }
+      
+      // If existing is rejected, keep it
+      if (existing.status === 'rejected') {
+        return
+      }
+      
+      // Otherwise, use the most recent one
+      const currentDate = new Date(enrollment.created_at)
+      const existingDate = new Date(existing.created_at)
+      if (currentDate > existingDate) {
+        courseMap.set(courseId, enrollment)
+      }
+    })
+    
+    return Array.from(courseMap.values())
+  }
+
+  const uniqueEnrollments = getLatestEnrollmentPerCourse(enrollments)
+  
+  const filteredEnrollments = uniqueEnrollments.filter(enrollment => {
     if (activeFilter === 'all') return true
     return enrollment.status === activeFilter
   })
 
   const stats = {
-    total: enrollments.length,
-    approved: enrollments.filter(e => e.status === 'approved').length,
-    pending: enrollments.filter(e => e.status === 'pending').length,
-    rejected: enrollments.filter(e => e.status === 'rejected').length,
+    total: uniqueEnrollments.length,
+    approved: uniqueEnrollments.filter(e => e.status === 'approved').length,
+    pending: uniqueEnrollments.filter(e => e.status === 'pending').length,
+    rejected: uniqueEnrollments.filter(e => e.status === 'rejected').length,
   }
 
   if (loading) {

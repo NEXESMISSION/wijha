@@ -124,6 +124,138 @@
   gap: 1rem;
 }
 
+/* Mobile Responsive - Smaller */
+@media (max-width: 768px) {
+  .course-form-page {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  .form-header {
+    margin-bottom: 1.25rem !important;
+  }
+  
+  .form-header h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .form-header p {
+    font-size: 0.875rem !important;
+  }
+  
+  .course-form {
+    padding: 1.25rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  .form-section {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+  
+  .form-section h2 {
+    font-size: 1.125rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem !important;
+  }
+  
+  .form-group label {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem !important;
+    min-height: 44px;
+    border-radius: 0.5rem !important;
+  }
+  
+  .form-group textarea {
+    min-height: 100px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem !important;
+  }
+  
+  .section-header button {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .module-editor {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .module-header {
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 0.875rem !important;
+  }
+  
+  .module-title-input {
+    font-size: 16px !important;
+    padding: 0.75rem !important;
+    min-height: 44px;
+  }
+  
+  .lessons-editor {
+    gap: 0.625rem !important;
+  }
+  
+  .lesson-editor {
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.875rem !important;
+    border-radius: 0.5rem !important;
+  }
+  
+  .lesson-editor input {
+    width: 100%;
+    font-size: 16px !important;
+    padding: 0.75rem !important;
+    min-height: 44px;
+  }
+  
+  .lesson-editor button {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    gap: 0.625rem !important;
+    margin-top: 1.5rem !important;
+  }
+  
+  .form-actions button {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.875rem !important;
+  }
+}
+
 .lesson-editor {
   display: flex;
   gap: 1rem;

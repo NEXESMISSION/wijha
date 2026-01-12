@@ -372,29 +372,247 @@
   font-size: 1.125rem;
 }
 
-/* Responsive */
+/* Responsive - Mobile First - Smaller */
 @media (max-width: 768px) {
   .dashboard {
-    padding: 1rem 0.5rem;
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  .dashboard-header {
+    margin-bottom: 1.25rem !important;
+    text-align: center;
   }
   
   .dashboard-header h1 {
-    font-size: 2rem;
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+    line-height: 1.2;
+  }
+  
+  .dashboard-header p {
+    font-size: 0.8125rem !important;
   }
   
   .earnings-summary,
   .summary-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  
+  .summary-card {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  .summary-card h3 {
+    font-size: 0.8125rem !important;
+    margin-bottom: 0.625rem !important;
+  }
+  
+  .summary-card .amount {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.625rem !important;
   }
   
   .admin-tabs,
   .dashboard-tabs {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-bottom: 1.25rem !important;
+    padding-bottom: 0.5rem;
+  }
+  
+  .admin-tabs::-webkit-scrollbar,
+  .dashboard-tabs::-webkit-scrollbar {
+    display: none;
   }
   
   .admin-tabs button,
   .dashboard-tabs button {
     white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.8125rem !important;
+    min-height: 44px;
+  }
+  
+  .admin-section,
+  .dashboard-section {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  
+  .admin-section h2,
+  .dashboard-section h2 {
+    font-size: 1.125rem !important;
+    margin-bottom: 0.875rem !important;
+  }
+  
+  .admin-list,
+  .courses-list {
+    gap: 0.75rem !important;
+  }
+  
+  .admin-item,
+  .course-item {
+    padding: 1rem !important;
+    border-radius: 0.625rem !important;
+  }
+  
+  .item-info h3,
+  .course-info h3 {
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .item-info p,
+  .course-info p {
+    font-size: 0.8125rem !important;
+    line-height: 1.5;
+  }
+  
+  .item-actions,
+  .course-actions {
+    flex-direction: column;
+    gap: 0.625rem !important;
+    width: 100%;
+  }
+  
+  .item-actions button,
+  .course-actions button {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .status-badge {
+    padding: 0.3125rem 0.625rem !important;
+    font-size: 0.75rem !important;
+    display: inline-block;
+    margin-top: 0.5rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem !important;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem !important;
+    min-height: 44px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+    gap: 0.625rem !important;
+    margin-top: 1.25rem !important;
+  }
+  
+  .form-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+  
+  .empty-state {
+    padding: 1.5rem 0.75rem !important;
+  }
+  
+  .empty-state p {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.875rem !important;
+  }
+  
+  .error-message {
+    padding: 0.75rem !important;
+    margin-bottom: 1rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  .modal-content {
+    padding: 1.25rem 0.75rem !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    max-height: 90vh;
+  }
+  
+  .modal-content h2 {
+    font-size: 1.125rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 0.625rem !important;
+    margin-top: 1.25rem !important;
+  }
+  
+  .modal-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+  
+  .payment-proof {
+    padding: 0.75rem !important;
+  }
+  
+  .payment-proof img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Student Dashboard - Enrollment Cards - Better spacing on mobile */
+  /* Target the grid container for enrollment cards */
+  div[style*="gridTemplateColumns: 'repeat(auto-fill"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1.25rem !important; /* Much more space between cards */
+    padding: 0 0.25rem; /* Add side padding */
+  }
+  
+  /* Enrollment card - better spacing and sizing, less packed */
+  div[style*="background: 'white'"][style*="borderRadius: '1rem'"] {
+    margin-bottom: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+  
+  /* Enrollment card image - better size */
+  div[style*="height: '200px'"] {
+    height: 150px !important; /* Larger for better visibility */
+  }
+  
+  /* Enrollment card content - more padding for breathing room */
+  div[style*="padding: '1.5rem'"] {
+    padding: 1.25rem !important; /* More padding on mobile */
+  }
+  
+  /* Enrollment card title - better size and spacing */
+  div[style*="padding: '1.5rem'"] h3 {
+    font-size: 1.0625rem !important; /* Slightly larger */
+    margin-bottom: 0.75rem !important; /* More space */
+    line-height: 1.5;
+    padding: 0.25rem 0; /* Add vertical padding */
+  }
+  
+  /* Enrollment date - better spacing */
+  div[style*="padding: '1.5rem'"] p {
+    margin-bottom: 1rem !important; /* More space */
+    padding: 0.25rem 0; /* Add vertical padding */
+  }
+  
+  /* Rejection notice - better spacing */
+  div[style*="background: '#fef2f2'"] {
+    padding: 1rem !important; /* More padding */
+    margin-bottom: 1rem !important; /* More space */
+    border-radius: 0.75rem !important;
+  }
+  
+  /* Action button area - better spacing */
+  div[style*="marginTop: 'auto'"] {
+    padding-top: 1.25rem !important; /* More space above button */
   }
 }

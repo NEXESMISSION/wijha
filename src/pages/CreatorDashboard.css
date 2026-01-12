@@ -14,6 +14,7 @@
 @media (max-width: 768px) {
   .earnings-grid-responsive {
     grid-template-columns: 1fr;
+    gap: 0.75rem !important;
   }
 }
 
@@ -27,6 +28,77 @@
 @media (max-width: 768px) {
   .profile-images-grid-responsive {
     grid-template-columns: 1fr;
+    gap: 1rem !important;
+  }
+  
+  /* Profile Settings Section - Smaller */
+  .profile-settings-section {
+    padding: 1rem !important;
+  }
+  
+  .profile-settings-header {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .profile-settings-header h2 {
+    font-size: 1.125rem !important;
+  }
+  
+  .form-section {
+    margin-bottom: 1rem !important;
+    padding: 0.875rem !important;
+  }
+  
+  .form-section-title {
+    font-size: 1rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .form-input,
+  .form-textarea {
+    font-size: 16px !important;
+    padding: 0.75rem !important;
+    min-height: 44px;
+  }
+  
+  .image-upload-grid {
+    gap: 0.75rem !important;
+  }
+  
+  .image-preview-circle,
+  .image-preview-rectangle {
+    width: 100px !important;
+    height: 100px !important;
+  }
+  
+  /* Course Cards - Smaller */
+  .course-card {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  .course-card h3 {
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .course-card p {
+    font-size: 0.8125rem !important;
+  }
+  
+  /* Stats Cards - Smaller */
+  .stats-card {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  .stats-card h3 {
+    font-size: 0.8125rem !important;
+  }
+  
+  .stats-card .amount {
+    font-size: 1.5rem !important;
   }
 }
 

@@ -300,7 +300,7 @@ function CreatorDashboard() {
             style={{ padding: '0.75rem 1.5rem' }}
           >
             + إنشاء دورة جديدة
-          </Link>
+        </Link>
         </div>
       </div>
       
@@ -795,8 +795,8 @@ function CreatorDashboard() {
                 }}>
                   {earnings.netEarnings.toFixed(2)} د.ت
                 </div>
-                <button 
-                  onClick={() => setShowPayoutModal(true)} 
+          <button 
+            onClick={() => setShowPayoutModal(true)} 
                   style={{
                     background: 'white',
                     color: '#7C34D9',
@@ -810,7 +810,7 @@ function CreatorDashboard() {
                     width: '100%',
                     transition: 'all 0.2s'
                   }}
-                  disabled={earnings.netEarnings <= 0}
+            disabled={earnings.netEarnings <= 0}
                   onMouseEnter={(e) => {
                     if (earnings.netEarnings > 0) {
                       e.target.style.transform = 'translateY(-2px)'
@@ -823,8 +823,8 @@ function CreatorDashboard() {
                   }}
                 >
                   طلب سحب
-                </button>
-              </div>
+          </button>
+        </div>
             </div>
 
             {/* Total Courses */}
@@ -962,10 +962,10 @@ function CreatorDashboard() {
                 </div>
                 <div style={{ color: '#ef4444', fontWeight: 600 }}>
                   {earnings.platformFees.toFixed(2)} د.ت
-                </div>
-              </div>
-            </div>
-          </div>
+        </div>
+        </div>
+        </div>
+      </div>
 
           {/* Courses List */}
           <div>
@@ -984,7 +984,7 @@ function CreatorDashboard() {
               </h2>
             </div>
 
-            {courses.length === 0 ? (
+      {courses.length === 0 ? (
               <div style={{
                 background: 'white',
                 borderRadius: '1rem',
@@ -1013,17 +1013,17 @@ function CreatorDashboard() {
                   }}
                 >
                   إنشاء أول دورة لك
-                </Link>
-              </div>
-            ) : (
+          </Link>
+        </div>
+      ) : (
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1.5rem'
               }}>
-                {courses.map((course) => {
-                  const courseEarnings = getCourseEarnings(course.id)
-                  return (
+          {courses.map((course) => {
+            const courseEarnings = getCourseEarnings(course.id)
+            return (
                     <div 
                       key={course.id} 
                       style={{
@@ -1103,7 +1103,7 @@ function CreatorDashboard() {
                               fontWeight: 600
                             }}>
                               {getStatusText(course.status)}
-                            </span>
+                    </span>
                           </div>
                           
                           <div style={{
@@ -1128,8 +1128,8 @@ function CreatorDashboard() {
                               </>
                             )}
                           </div>
-                        </div>
-                      </div>
+                  </div>
+                </div>
 
                       {/* Earnings Breakdown */}
                       {courseEarnings.enrollments > 0 && (
@@ -1144,7 +1144,7 @@ function CreatorDashboard() {
                             gap: '1rem',
                             marginBottom: '1rem'
                           }}>
-                            <div>
+                    <div>
                               <div style={{
                                 fontSize: '0.75rem',
                                 color: '#6b7280',
@@ -1159,8 +1159,8 @@ function CreatorDashboard() {
                               }}>
                                 {courseEarnings.totalEarnings.toFixed(2)} د.ت
                               </div>
-                            </div>
-                            <div>
+                    </div>
+                    <div>
                               <div style={{
                                 fontSize: '0.75rem',
                                 color: '#6b7280',
@@ -1175,8 +1175,8 @@ function CreatorDashboard() {
                               }}>
                                 -{courseEarnings.platformFee.toFixed(2)} د.ت
                               </div>
-                            </div>
-                            <div>
+                    </div>
+                    <div>
                               <div style={{
                                 fontSize: '0.75rem',
                                 color: '#6b7280',
@@ -1192,8 +1192,8 @@ function CreatorDashboard() {
                                 {courseEarnings.netEarnings.toFixed(2)} د.ت
                               </div>
                             </div>
-                          </div>
-                        </div>
+                    </div>
+                  </div>
                       )}
 
                       {/* Actions */}
@@ -1226,17 +1226,17 @@ function CreatorDashboard() {
                           }}
                         >
                           تعديل الدورة
-                        </Link>
-                      </div>
-                    </div>
-                  )
-                })}
+                  </Link>
+                </div>
               </div>
-            )}
+            )
+          })}
+        </div>
+      )}
           </div>
 
           {/* Payout Modal */}
-          {showPayoutModal && (
+      {showPayoutModal && (
             <div 
               style={{
                 position: 'fixed',
@@ -1269,7 +1269,7 @@ function CreatorDashboard() {
                 }}>
                   طلب سحب
                 </h2>
-                <form onSubmit={handlePayoutRequest}>
+            <form onSubmit={handlePayoutRequest}>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label style={{
                       display: 'block',
@@ -1293,7 +1293,7 @@ function CreatorDashboard() {
                         color: '#6b7280'
                       }}
                     />
-                  </div>
+              </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label style={{
                       display: 'block',
@@ -1303,13 +1303,13 @@ function CreatorDashboard() {
                     }}>
                       المبلغ
                     </label>
-                    <input
-                      type="number"
-                      value={payoutAmount}
-                      onChange={(e) => setPayoutAmount(e.target.value)}
-                      max={earnings.netEarnings}
-                      step="0.01"
-                      required
+                <input
+                  type="number"
+                  value={payoutAmount}
+                  onChange={(e) => setPayoutAmount(e.target.value)}
+                  max={earnings.netEarnings}
+                  step="0.01"
+                  required
                       placeholder="أدخل المبلغ"
                       style={{
                         width: '100%',
@@ -1318,8 +1318,8 @@ function CreatorDashboard() {
                         borderRadius: '0.5rem',
                         fontSize: '1rem'
                       }}
-                    />
-                  </div>
+                />
+              </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label style={{
                       display: 'block',
@@ -1329,10 +1329,10 @@ function CreatorDashboard() {
                     }}>
                       طريقة الدفع
                     </label>
-                    <select
-                      value={payoutMethod}
-                      onChange={(e) => setPayoutMethod(e.target.value)}
-                      required
+                <select
+                  value={payoutMethod}
+                  onChange={(e) => setPayoutMethod(e.target.value)}
+                  required
                       style={{
                         width: '100%',
                         padding: '0.75rem',
@@ -1345,8 +1345,8 @@ function CreatorDashboard() {
                       <option value="bank">تحويل بنكي</option>
                       <option value="mobile">دفع محمول</option>
                       <option value="cash">نقدي</option>
-                    </select>
-                  </div>
+                </select>
+              </div>
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                     <label style={{
                       display: 'block',
@@ -1356,10 +1356,10 @@ function CreatorDashboard() {
                     }}>
                       ملاحظة (اختياري)
                     </label>
-                    <textarea
-                      value={payoutNote}
-                      onChange={(e) => setPayoutNote(e.target.value)}
-                      rows="3"
+                <textarea
+                  value={payoutNote}
+                  onChange={(e) => setPayoutNote(e.target.value)}
+                  rows="3"
                       placeholder="أي ملاحظات إضافية..."
                       style={{
                         width: '100%',
@@ -1370,32 +1370,32 @@ function CreatorDashboard() {
                         fontFamily: 'inherit',
                         resize: 'vertical'
                       }}
-                    />
-                  </div>
+                />
+              </div>
                   <div style={{
                     display: 'flex',
                     gap: '1rem',
                     justifyContent: 'flex-end'
                   }}>
-                    <button 
-                      type="button" 
-                      onClick={() => setShowPayoutModal(false)} 
-                      className="btn-secondary"
-                      disabled={submitting}
-                    >
+                <button 
+                  type="button" 
+                  onClick={() => setShowPayoutModal(false)} 
+                  className="btn-secondary"
+                  disabled={submitting}
+                >
                       إلغاء
-                    </button>
+                </button>
                     <button 
                       type="submit" 
                       className="btn-primary"
                       disabled={submitting}
                     >
                       {submitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
-                    </button>
-                  </div>
-                </form>
+                </button>
               </div>
-            </div>
+            </form>
+          </div>
+        </div>
           )}
         </>
       )}

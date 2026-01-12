@@ -289,15 +289,107 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+    padding: 1rem 0.75rem !important;
+  }
+  
+  .profile-avatar {
+    width: 80px !important;
+    height: 80px !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .profile-info h1 {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .profile-info p {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.75rem !important;
   }
   
   .profile-stats {
     width: 100%;
     justify-content: space-around;
+    gap: 0.75rem !important;
+    padding: 0.75rem !important;
+  }
+  
+  .stat-item {
+    padding: 0.5rem !important;
+  }
+  
+  .stat-item strong {
+    font-size: 1.125rem !important;
+  }
+  
+  .stat-item span {
+    font-size: 0.75rem !important;
   }
   
   .courses-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+  
+  .course-card {
+    padding: 1rem !important;
+    border-radius: 0.75rem !important;
+  }
+  
+  .course-card h3 {
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .course-card p {
+    font-size: 0.8125rem !important;
+  }
+  
+  .rating-section,
+  .comments-section {
+    padding: 1rem 0.75rem !important;
+  }
+  
+  .rating-section h2,
+  .comments-section h2 {
+    font-size: 1.125rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .star-btn {
+    font-size: 1.5rem !important;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .comment-item {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  .comment-author strong {
+    font-size: 0.875rem !important;
+  }
+  
+  .comment-date {
+    font-size: 0.75rem !important;
+  }
+  
+  .comment-text {
+    font-size: 0.8125rem !important;
+  }
+  
+  .comment-form textarea {
+    font-size: 16px !important;
+    padding: 0.75rem !important;
+    min-height: 100px;
+  }
+  
+  .comment-form button {
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.875rem !important;
+    min-height: 44px;
   }
 }
 

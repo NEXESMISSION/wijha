@@ -42,7 +42,7 @@ function AppRoutes() {
   // Redirect based on role
   const getDefaultRoute = () => {
     if (!user) return '/'
-    if (user.role === 'student') return '/student/dashboard'
+    if (user.role === 'student') return '/courses' // Students go to courses page
     if (user.role === 'creator') return '/creator/dashboard'
     if (user.role === 'admin') return '/admin/dashboard'
     return '/'

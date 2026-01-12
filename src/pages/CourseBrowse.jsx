@@ -16,6 +16,7 @@ function CourseBrowse() {
   const [selectedLevel, setSelectedLevel] = useState('')
   const [expandedCategories, setExpandedCategories] = useState({})
   const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false) // Mobile dropdown state
   const searchTimeoutRef = useRef(null)
 
   useEffect(() => {
@@ -112,7 +113,9 @@ function CourseBrowse() {
       maxWidth: '1600px',
       margin: '0 auto',
       padding: '2rem 1rem'
-    }}>
+    }}
+    className="course-browse-container"
+    >
       {/* Header Section */}
       <div style={{
         textAlign: 'center',
@@ -232,23 +235,57 @@ function CourseBrowse() {
           overflowY: 'auto'
         }}>
           {/* Categories Section */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: '#1f2937',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              📂 الفئات
-            </h3>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem'
-            }}>
+          <div style={{ marginBottom: '2rem' }} className="categories-section-mobile">
+            <button
+              onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+              className="categories-dropdown-toggle"
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                background: 'transparent',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                color: '#1f2937',
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'right',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s',
+                marginBottom: '1rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#7C34D9'
+                e.currentTarget.style.background = '#f9fafb'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e5e7eb'
+                e.currentTarget.style.background = 'transparent'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📂 الفئات
+              </div>
+              <span style={{
+                fontSize: '1rem',
+                transition: 'transform 0.2s',
+                transform: isCategoriesOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+              }}>
+                ▼
+              </span>
+            </button>
+            <div 
+              className={`categories-dropdown-content ${isCategoriesOpen ? 'open' : ''}`}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease, opacity 0.3s ease'
+              }}
+            >
               {/* All Categories Option */}
               <button
                 onClick={() => setSelectedCategory('')}
@@ -565,9 +602,11 @@ function CourseBrowse() {
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '1.5rem'
-        }}>
+          gridTemplateColumns: 'repeat(2, 1fr)', // Exactly 2 columns
+          gap: '0.875rem' // Reduced gap on mobile, larger on desktop
+        }}
+        className="courses-grid-mobile"
+        >
           {courses.map((course) => (
             <Link 
               key={course.id} 
@@ -652,7 +691,7 @@ function CourseBrowse() {
 
                 {/* Course Content */}
                 <div style={{ 
-                  padding: '1.25rem',
+                  padding: '1.5rem',
                   flex: 1,
                   display: 'flex',
                   flexDirection: 'column'
@@ -661,13 +700,13 @@ function CourseBrowse() {
                     fontSize: '1.125rem',
                     fontWeight: 700,
                     color: '#1f2937',
-                    marginBottom: '0.5rem',
-                    lineHeight: '1.4',
+                    marginBottom: '0.875rem',
+                    lineHeight: '1.6',
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
-                    minHeight: '3em'
+                    minHeight: '3.6em'
                   }}>
                     {course.title}
                   </h3>
@@ -693,7 +732,8 @@ function CourseBrowse() {
                     gap: '0.5rem',
                     marginBottom: '1rem',
                     paddingBottom: '1rem',
-                    borderBottom: '1px solid #f3f4f6'
+                    borderBottom: '1px solid #f3f4f6',
+                    fontSize: '0.875rem'
                   }}>
                     {course.profiles?.profile_image_url && (
                       <img
@@ -712,7 +752,7 @@ function CourseBrowse() {
                       />
                     )}
                     <span style={{
-                      fontSize: '0.75rem',
+                      fontSize: '0.9375rem',
                       color: '#6b7280'
                     }}>
                       {course.profiles?.name || 'غير معروف'}
@@ -723,17 +763,21 @@ function CourseBrowse() {
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    marginTop: 'auto',
+                    paddingTop: '1.25rem',
+                    borderTop: '1px solid #f3f4f6',
+                    gap: '0.75rem'
                   }}>
                     <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 900,
+                      fontSize: '1.375rem',
+                      fontWeight: 700,
                       color: '#7C34D9'
                     }}>
-                      {parseFloat(course.price).toFixed(2)} <span style={{ fontSize: '1rem', color: '#6b7280' }}>د.ت</span>
+                      {course.price === 0 ? 'مجاني' : `${parseFloat(course.price).toFixed(2)} د.ت`}
                     </div>
                     <div style={{
-                      fontSize: '0.875rem',
+                      fontSize: '1rem',
                       color: '#6b7280',
                       display: 'flex',
                       alignItems: 'center',

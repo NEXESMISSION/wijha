@@ -735,12 +735,12 @@ export const getCreatorEarnings = async (creatorId) => {
   let platformFees = 0
 
   if (enrollments && enrollments.length > 0) {
-    enrollments.forEach(enrollment => {
+  enrollments.forEach(enrollment => {
       const coursePrice = coursePriceMap[enrollment.course_id] || 0
       const platformFee = coursePrice * platformFeePercent
       totalEarnings += coursePrice
-      platformFees += platformFee
-    })
+    platformFees += platformFee
+  })
   }
 
   const netEarnings = totalEarnings - platformFees

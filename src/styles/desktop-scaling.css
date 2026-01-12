@@ -1,0 +1,199 @@
+/* ============================================
+   DESKTOP SIZE REDUCTION (20% smaller)
+   Applied only on desktop screens (min-width: 1024px)
+   ============================================ */
+
+@media (min-width: 1024px) {
+  /* Base font size reduction - scales everything by 20% */
+  html {
+    font-size: 80%; /* 20% reduction */
+  }
+  
+  /* Override specific large font sizes to ensure they're reduced */
+  h1 {
+    font-size: 2.4rem !important; /* 3rem * 0.8 */
+  }
+  
+  h2 {
+    font-size: 1.92rem !important; /* 2.4rem * 0.8 */
+  }
+  
+  h3 {
+    font-size: 1.44rem !important; /* 1.8rem * 0.8 */
+  }
+  
+  h4 {
+    font-size: 1.152rem !important; /* 1.44rem * 0.8 */
+  }
+  
+  /* Buttons */
+  button,
+  .btn-primary,
+  .btn-gradient,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    padding: 0.6rem 1.2rem !important; /* Reduced from 0.75rem 1.5rem */
+    font-size: 0.875rem !important;
+  }
+  
+  /* Navigation */
+  .navbar-container {
+    height: 4rem !important; /* Reduced from 5rem */
+  }
+  
+  .navbar-logo {
+    height: 2.8rem !important; /* Reduced from 3.5rem */
+  }
+  
+  /* Cards */
+  .card {
+    padding: 1.2rem !important; /* Reduced from 1.5rem */
+  }
+  
+  /* Forms */
+  .form-input,
+  .form-textarea,
+  input,
+  textarea,
+  select {
+    padding: 0.6rem !important; /* Reduced from 0.75rem */
+  }
+  
+  /* Badges */
+  .badge,
+  .status-badge {
+    padding: 0.2rem 0.6rem !important; /* Reduced from 0.25rem 0.75rem */
+    font-size: 0.7rem !important; /* Reduced from 0.875rem */
+  }
+  
+  /* Common inline style patterns - target fontSize in inline styles */
+  [style*="fontSize: '3rem'"],
+  [style*='fontSize: "3rem"'],
+  [style*="font-size: 3rem"],
+  [style*='font-size: 3rem'] {
+    font-size: 2.4rem !important;
+  }
+  
+  [style*="fontSize: '2.5rem'"],
+  [style*='fontSize: "2.5rem"'],
+  [style*="font-size: 2.5rem"],
+  [style*='font-size: 2.5rem'] {
+    font-size: 2rem !important;
+  }
+  
+  [style*="fontSize: '2rem'"],
+  [style*='fontSize: "2rem"'],
+  [style*="font-size: 2rem"],
+  [style*='font-size: 2rem'] {
+    font-size: 1.6rem !important;
+  }
+  
+  [style*="fontSize: '1.5rem'"],
+  [style*='fontSize: "1.5rem"'],
+  [style*="font-size: 1.5rem"],
+  [style*='font-size: 1.5rem'] {
+    font-size: 1.2rem !important;
+  }
+  
+  [style*="fontSize: '1.25rem'"],
+  [style*='fontSize: "1.25rem"'],
+  [style*="font-size: 1.25rem"],
+  [style*='font-size: 1.25rem'] {
+    font-size: 1rem !important;
+  }
+  
+  [style*="fontSize: '1.125rem'"],
+  [style*='fontSize: "1.125rem"'],
+  [style*="font-size: 1.125rem"],
+  [style*='font-size: 1.125rem'] {
+    font-size: 0.9rem !important;
+  }
+  
+  [style*="fontSize: '1rem'"],
+  [style*='fontSize: "1rem"'],
+  [style*="font-size: 1rem"],
+  [style*='font-size: 1rem'] {
+    font-size: 0.875rem !important;
+  }
+  
+  /* Common padding patterns */
+  [style*="padding: '2rem'"],
+  [style*='padding: "2rem"'],
+  [style*="padding: 2rem"],
+  [style*='padding: 2rem'] {
+    padding: 1.6rem !important;
+  }
+  
+  [style*="padding: '2rem 1rem'"],
+  [style*='padding: "2rem 1rem"'],
+  [style*="padding: 2rem 1rem"],
+  [style*='padding: 2rem 1rem'] {
+    padding: 1.6rem 0.8rem !important;
+  }
+  
+  [style*="padding: '1.5rem'"],
+  [style*='padding: "1.5rem"'],
+  [style*="padding: 1.5rem"],
+  [style*='padding: 1.5rem'] {
+    padding: 1.2rem !important;
+  }
+  
+  [style*="padding: '1rem'"],
+  [style*='padding: "1rem"'],
+  [style*="padding: 1rem"],
+  [style*='padding: 1rem'] {
+    padding: 0.8rem !important;
+  }
+  
+  /* Common margin patterns */
+  [style*="marginBottom: '3rem'"],
+  [style*='marginBottom: "3rem"'],
+  [style*="margin-bottom: 3rem"],
+  [style*='margin-bottom: 3rem'] {
+    margin-bottom: 2.4rem !important;
+  }
+  
+  [style*="marginBottom: '2rem'"],
+  [style*='marginBottom: "2rem"'],
+  [style*="margin-bottom: 2rem"],
+  [style*='margin-bottom: 2rem'] {
+    margin-bottom: 1.6rem !important;
+  }
+  
+  [style*="marginBottom: '1.5rem'"],
+  [style*='marginBottom: "1.5rem"'],
+  [style*="margin-bottom: 1.5rem"],
+  [style*='margin-bottom: 1.5rem'] {
+    margin-bottom: 1.2rem !important;
+  }
+  
+  [style*="marginBottom: '1rem'"],
+  [style*='marginBottom: "1rem"'],
+  [style*="margin-bottom: 1rem"],
+  [style*='margin-bottom: 1rem'] {
+    margin-bottom: 0.8rem !important;
+  }
+  
+  /* Common gap patterns */
+  [style*="gap: '2rem'"],
+  [style*='gap: "2rem"'],
+  [style*="gap: 2rem"],
+  [style*='gap: 2rem'] {
+    gap: 1.6rem !important;
+  }
+  
+  [style*="gap: '1.5rem'"],
+  [style*='gap: "1.5rem"'],
+  [style*="gap: 1.5rem"],
+  [style*='gap: 1.5rem'] {
+    gap: 1.2rem !important;
+  }
+  
+  [style*="gap: '1rem'"],
+  [style*='gap: "1rem"'],
+  [style*="gap: 1rem"],
+  [style*='gap: 1rem'] {
+    gap: 0.8rem !important;
+  }
+}

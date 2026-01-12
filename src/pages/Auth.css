@@ -182,3 +182,98 @@
   margin: 0.25rem 0;
 }
 
+/* Mobile Responsive - Smaller */
+@media (max-width: 768px) {
+  .auth-container {
+    padding: 0.75rem 0.5rem !important;
+    min-height: 100vh;
+  }
+  
+  .auth-card {
+    padding: 1.5rem 1rem !important;
+    border-radius: 0.75rem !important;
+    margin: 0;
+    max-width: 100%;
+  }
+  
+  .auth-card h1 {
+    font-size: 1.375rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .auth-subtitle {
+    font-size: 0.8125rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  
+  .auth-form {
+    gap: 1rem !important;
+  }
+  
+  .form-group {
+    gap: 0.5rem !important;
+  }
+  
+  .form-group label {
+    font-size: 0.875rem !important;
+  }
+  
+  .form-group input {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem !important;
+    min-height: 44px;
+    border-radius: 0.5rem !important;
+  }
+  
+  .role-selector {
+    flex-direction: column;
+    gap: 0.625rem !important;
+  }
+  
+  .role-option {
+    padding: 0.875rem !important;
+    min-height: 48px;
+    font-size: 0.875rem !important;
+  }
+  
+  .auth-button {
+    width: 100%;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+    min-height: 44px;
+    margin-top: 0.5rem;
+  }
+  
+  .auth-footer {
+    margin-top: 1.25rem !important;
+    font-size: 0.8125rem !important;
+  }
+  
+  .auth-footer a {
+    font-size: 0.8125rem !important;
+    padding: 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  
+  .error-message {
+    padding: 0.75rem !important;
+    font-size: 0.8125rem !important;
+    margin-bottom: 0.875rem !important;
+  }
+  
+  .demo-accounts {
+    margin-top: 1.25rem !important;
+    padding-top: 1.25rem !important;
+  }
+  
+  .demo-accounts h3 {
+    font-size: 0.8125rem !important;
+  }
+  
+  .demo-accounts p {
+    font-size: 0.75rem !important;
+  }
+}
+
