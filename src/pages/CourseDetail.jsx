@@ -392,20 +392,22 @@ function CourseDetail() {
           position: 'relative',
           width: '100%',
           height: '100%',
-          background: '#111827'
+          background: '#111827',
+          overflow: 'hidden'
         }}>
             <iframe
               src={`https://www.youtube.com/embed/${videoId}`}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%'
-            }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                border: 'none'
+              }}
             />
           </div>
         )
@@ -963,7 +965,11 @@ function CourseDetail() {
       className="course-video-lessons-grid"
       >
         {/* Video Player */}
-        <div>
+        <div style={{
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden'
+        }}>
           <div style={{
             background: '#111827',
             borderRadius: '1rem',
@@ -973,7 +979,10 @@ function CourseDetail() {
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: '400px',
-            marginBottom: '2rem'
+            marginBottom: '2rem',
+            width: '100%',
+            maxWidth: '100%',
+            position: 'relative'
           }}>
             {currentVideoUrl ? (
               renderLink(currentVideoUrl)

@@ -1053,16 +1053,74 @@
   div[style*="display: 'grid'"][style*="gridTemplateColumns: 'minmax(0, 2fr)"] {
     grid-template-columns: 1fr !important;
     gap: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Prevent Stacking Issues - Add More Spacing */
+  div[style*="marginBottom: '2rem'"] {
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Course Header - Better Spacing */
+  div[style*="background: 'linear-gradient(135deg, #f9fafb"] {
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Course Info Section - Better Spacing */
+  div[style*="display: 'flex'"][style*="justifyContent: 'space-between'"] {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+  
+  /* Enrollment Card - Better Spacing from Content */
+  div[style*="minWidth: '300px'"] {
+    margin-top: 1.5rem !important;
+  }
+  
+  /* Stats Section - Better Spacing */
+  div[style*="background: 'linear-gradient(135deg, #7C34D9"] {
+    margin-top: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  /* Comments Section - Better Spacing */
+  div[style*="marginTop: '2rem'"] {
+    margin-top: 1.5rem !important;
+  }
+  
+  /* Lessons List - Better Spacing */
+  div[style*="background: 'white'"][style*="borderRadius: '1rem'"][style*="padding: '1.5rem'"] {
+    margin-top: 1.5rem !important;
   }
   
   /* Video Player Container - Mobile */
   div[style*="background: '#111827'"] {
     border-radius: 0.875rem !important;
     min-height: 200px !important;
+    max-height: 250px !important;
+    aspect-ratio: 16 / 9 !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
   }
   
   iframe {
     border-radius: 0.875rem !important;
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+  
+  /* Video Container Wrapper - Prevent Overflow */
+  div[style*="display: 'grid'"][style*="gridTemplateColumns: 'minmax(0, 2fr)"] > div:first-child {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
   
   /* Lessons List - Mobile */
