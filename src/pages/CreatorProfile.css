@@ -400,8 +400,16 @@
   }
   
   div[style*="height: '500px'"] {
-    height: 250px !important;
+    height: 180px !important; /* Reduced from 250px - much smaller on mobile */
     border-radius: 1rem !important;
+  }
+  
+  div[style*="height: '120px'"] {
+    height: 60px !important; /* Reduce gradient overlay height */
+  }
+  
+  div[style*="fontSize: '2.5rem'"] {
+    font-size: 1.5rem !important; /* Smaller text in cover if no image */
   }
   
   /* Profile Container - Mobile */
