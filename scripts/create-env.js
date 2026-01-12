@@ -1,0 +1,10 @@
+import { writeFileSync } from 'fs'
+
+const envContent = `VITE_SUPABASE_URL=https://mxsydpljfseanvwxsrgj.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3lkcGxqZnNlYW52d3hzcmdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgyMTI2NDUsImV4cCI6MjA4Mzc4ODY0NX0.Gq7kucrncLprWG_liibYGsK6U8S2--E8GcmAxbhV0gg
+VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14c3lkcGxqZnNlYW52d3hzcmdqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODIxMjY0NSwiZXhwIjoyMDgzNzg4NjQ1fQ._ZrANBUpHlGP-hBhcJYdpiFV2X-YhxXxAE6wM3fRCws
+`
+
+writeFileSync('.env', envContent, 'utf8')
+console.log('✅ .env file created successfully!')
+

@@ -1,0 +1,303 @@
+.creator-profile {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.profile-cover {
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.profile-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.profile-header {
+  background: white;
+  border-radius: 10px;
+  padding: 2rem;
+  margin-top: -80px;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.profile-avatar {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 5px solid white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-info h1 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.profile-bio {
+  color: #666;
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.profile-website {
+  color: #667eea;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+
+.profile-website:hover {
+  text-decoration: underline;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 2rem;
+  flex-shrink: 0;
+}
+
+.profile-stats .stat-item {
+  text-align: center;
+}
+
+.profile-stats .stat-item strong {
+  display: block;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.profile-stats .stat-item span {
+  display: block;
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.rating-section,
+.comments-section,
+.creator-courses-section {
+  background: white;
+  border-radius: 10px;
+  padding: 2rem;
+  margin-top: 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.rating-section h3,
+.comments-section h2,
+.creator-courses-section h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s;
+  filter: grayscale(100%);
+  opacity: 0.5;
+}
+
+.star-btn:hover {
+  transform: scale(1.2);
+}
+
+.star-btn.active,
+.star-btn.hover {
+  filter: grayscale(0%);
+  opacity: 1;
+}
+
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.course-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.course-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.course-card .course-image {
+  width: 100%;
+  height: 150px;
+  overflow: hidden;
+}
+
+.course-card .course-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.course-card .course-content {
+  padding: 1rem;
+}
+
+.course-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+.course-card .course-price {
+  color: #667eea;
+  font-weight: bold;
+  margin: 0;
+}
+
+.comment-form {
+  margin-bottom: 2rem;
+}
+
+.comment-form textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  margin-bottom: 0.5rem;
+}
+
+.comment-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.comment-item {
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.comment-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.comment-author {
+  flex: 1;
+}
+
+.comment-author strong {
+  display: block;
+  color: #333;
+}
+
+.comment-date {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.delete-comment-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.delete-comment-btn:hover {
+  background: #dc2626;
+}
+
+.comment-text {
+  margin: 0;
+  color: #666;
+  line-height: 1.6;
+}
+
+.no-comments {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .profile-stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+  
+  .courses-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
