@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useState, useEffect } from 'react'
 import { getProfile } from '../lib/api'
+import BackButton from './BackButton'
 import '../styles/design-system.css'
 import './Layout.css'
 
@@ -324,6 +325,9 @@ function Layout({ children }) {
       )}
 
       <main className="main-content">
+        <div style={{ paddingTop: '1rem', paddingLeft: '1rem', paddingRight: '1rem' }}>
+          <BackButton label="← العودة" />
+        </div>
         {children}
       </main>
       <footer className="footer">

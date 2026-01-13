@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
+import BackButton from '../components/BackButton'
 import '../styles/design-system.css'
 import './Auth.css'
 
@@ -12,9 +13,26 @@ function Signup() {
   const [role, setRole] = useState('student')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signup } = useAuth()
+  const [justSignedUp, setJustSignedUp] = useState(false)
+  const { signup, user } = useAuth()
   const { showSuccess } = useAlert()
   const navigate = useNavigate()
+
+  const getRedirectRoute = (userRole) => {
+    if (userRole === 'student') return '/courses'
+    if (userRole === 'creator') return '/creator/dashboard'
+    if (userRole === 'admin') return '/admin/dashboard'
+    return '/'
+  }
+
+  // Redirect after signup when user state updates
+  useEffect(() => {
+    if (justSignedUp && user?.role) {
+      const route = getRedirectRoute(user.role)
+      navigate(route, { replace: true })
+      setJustSignedUp(false)
+    }
+  }, [user, justSignedUp, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -45,12 +63,13 @@ function Signup() {
       
       if (result.success) {
         if (result.message) {
+          // Email confirmation required
           showSuccess(result.message, 'تم التسجيل')
           navigate('/login', { replace: true })
         } else {
-          setTimeout(() => {
-            navigate('/', { replace: true })
-          }, 100)
+          // Signed up successfully, redirect based on role
+          setJustSignedUp(true)
+          // Redirect will happen in useEffect when user state updates
         }
       } else {
         const errorMsg = result.error || 'Signup failed. Please check your information and try again.'
@@ -100,24 +119,7 @@ function Signup() {
         borderRadius: '1.5rem',
         boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.15)'
       }}>
-        <Link 
-          to="/" 
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: '#6b7280',
-            textDecoration: 'none',
-            marginBottom: '1rem',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            transition: 'color 0.3s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#F48434'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}
-        >
-          ← العودة للرئيسية
-        </Link>
+        <BackButton />
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src="https://i.ibb.co/ccdRN4V4/lg.png" 

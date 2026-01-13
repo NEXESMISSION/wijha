@@ -519,7 +519,7 @@ function LandingPage() {
                   to={user.role === 'student' ? '/courses' : user.role === 'creator' ? '/creator/dashboard' : '/admin/dashboard'} 
                 className="hero-btn-primary"
               >
-                  ابدأ التعلم الآن
+                  {user.role === 'student' ? 'عرض جميع الدورات' : user.role === 'creator' ? 'لوحة التحكم' : 'لوحة التحكم'}
               </Link>
               )}
             </div>

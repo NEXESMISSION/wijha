@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import BackButton from '../components/BackButton'
 import '../styles/design-system.css'
 import './Auth.css'
 
@@ -8,8 +9,25 @@ function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const [justLoggedIn, setJustLoggedIn] = useState(false)
+  const { login, user } = useAuth()
   const navigate = useNavigate()
+
+  const getRedirectRoute = (userRole) => {
+    if (userRole === 'student') return '/courses'
+    if (userRole === 'creator') return '/creator/dashboard'
+    if (userRole === 'admin') return '/admin/dashboard'
+    return '/'
+  }
+
+  // Redirect after login when user state updates
+  useEffect(() => {
+    if (justLoggedIn && user?.role) {
+      const route = getRedirectRoute(user.role)
+      navigate(route, { replace: true })
+      setJustLoggedIn(false)
+    }
+  }, [user, justLoggedIn, navigate])
 
   const [loading, setLoading] = useState(false)
 
@@ -34,10 +52,8 @@ function Login() {
       
       const result = await Promise.race([loginPromise, timeoutPromise])
       if (result.success) {
-        // Small delay to ensure state is updated
-        setTimeout(() => {
-          navigate('/', { replace: true })
-        }, 100)
+        setJustLoggedIn(true)
+        // Redirect will happen in useEffect when user state updates
       } else {
         setError(result.error || 'Login failed')
       }
@@ -85,24 +101,7 @@ function Login() {
         borderRadius: '1.5rem',
         boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.15)'
       }}>
-        <Link 
-          to="/" 
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: '#6b7280',
-            textDecoration: 'none',
-            marginBottom: '1rem',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            transition: 'color 0.3s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#F48434'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}
-        >
-          ← العودة للرئيسية
-        </Link>
+        <BackButton />
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src="https://i.ibb.co/ccdRN4V4/lg.png" 
