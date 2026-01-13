@@ -17,6 +17,14 @@ export function AuthProvider({ children }) {
     let isMounted = true
     const profileLoadCache = new Set() // Track which profiles are being loaded
     let sessionValidationInterval = null
+    
+    // Safety timeout: Force clear loading after 10 seconds to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('[AuthContext] Loading timeout - forcing loading to false after 10 seconds')
+        setLoading(false)
+      }
+    }, 10000)
 
     console.log('[AuthContext] Initializing auth check...')
 
@@ -96,9 +104,25 @@ export function AuthProvider({ children }) {
         
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
+          // Add timeout to profile loading to prevent infinite loading
+          const profileLoadTimeout = setTimeout(() => {
+            if (isMounted) {
+              console.warn('[AuthContext] Profile load timeout - clearing loading state')
+              setLoading(false)
+            }
+          }, 8000) // 8 second timeout for profile load
+          
           loadProfile(userId).finally(() => {
+            clearTimeout(profileLoadTimeout)
             profileLoadCache.delete(userId)
             console.log('[AuthContext] Profile load completed, clearing loading state')
+            if (isMounted) {
+              setLoading(false)
+            }
+          }).catch((err) => {
+            console.error('[AuthContext] Profile load error:', err)
+            clearTimeout(profileLoadTimeout)
+            profileLoadCache.delete(userId)
             if (isMounted) {
               setLoading(false)
             }
@@ -197,9 +221,18 @@ export function AuthProvider({ children }) {
           const userId = session.user.id
           if (!profileLoadCache.has(userId)) {
             profileLoadCache.add(userId)
+            // Add timeout to profile loading
+            const profileLoadTimeout = setTimeout(() => {
+              if (isMounted) {
+                console.warn('[AuthContext] Profile load timeout (creating session) - clearing loading state')
+                setLoading(false)
+              }
+            }, 8000) // 8 second timeout for profile load
+            
             loadProfile(userId).catch(err => {
               console.error('[AuthContext] Auth state change profile load failed:', err)
             }).finally(() => {
+              clearTimeout(profileLoadTimeout)
               profileLoadCache.delete(userId)
               console.log('[AuthContext] Profile load completed in auth state change')
               if (isMounted) setLoading(false)
@@ -274,9 +307,18 @@ export function AuthProvider({ children }) {
         // Load profile in background, don't block - but prevent duplicates
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
+          // Add timeout to profile loading
+          const profileLoadTimeout = setTimeout(() => {
+            if (isMounted) {
+              console.warn('[AuthContext] Profile load timeout in auth state change - clearing loading state')
+              setLoading(false)
+            }
+          }, 8000) // 8 second timeout for profile load
+          
           loadProfile(userId).catch(err => {
             console.error('[AuthContext] Auth state change profile load failed:', err)
           }).finally(() => {
+            clearTimeout(profileLoadTimeout)
             profileLoadCache.delete(userId)
             console.log('[AuthContext] Profile load completed in auth state change (valid session)')
             if (isMounted) setLoading(false)
@@ -296,6 +338,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       isMounted = false
+      clearTimeout(loadingTimeout)
       subscription.unsubscribe()
       if (sessionValidationInterval) {
         clearInterval(sessionValidationInterval)
