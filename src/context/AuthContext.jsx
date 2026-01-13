@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [logoutMessage, setLogoutMessage] = useState(null)
   const [isSessionInvalid, setIsSessionInvalid] = useState(false)
+  const isCreatingSessionRef = { current: false } // Use ref to avoid closure issues
 
   useEffect(() => {
     let isMounted = true
@@ -89,8 +90,10 @@ export function AuthProvider({ children }) {
     sessionValidationInterval = setInterval(async () => {
       if (!isMounted) return
       
-      // Skip validation if session is already marked as invalid (save data)
-      if (isSessionInvalid) return
+      // Skip validation if:
+      // 1. Session is already marked as invalid (save data)
+      // 2. We're currently creating a session (avoid race condition)
+      if (isSessionInvalid || isCreatingSessionRef.current) return
       
       const { data: { session } } = await supabase.auth.getSession()
       if (session && user) {
@@ -143,6 +146,24 @@ export function AuthProvider({ children }) {
       if (!isMounted) return
       
       if (session) {
+        // Skip validation if we're currently creating a session (avoid race condition)
+        // This happens right after login when createSession is called
+        if (isCreatingSessionRef.current) {
+          // Just set the user, validation will happen after session is created
+          setUser(session.user)
+          const userId = session.user.id
+          if (!profileLoadCache.has(userId)) {
+            profileLoadCache.add(userId)
+            loadProfile(userId).catch(err => {
+              console.warn('Auth state change profile load failed:', err)
+            }).finally(() => {
+              profileLoadCache.delete(userId)
+            })
+          }
+          setLoading(false)
+          return
+        }
+        
         // Validate session before accepting it (prevent auto-login with invalid session)
         const validation = await validateCurrentSession()
         if (!validation.isValid) {
@@ -250,11 +271,28 @@ export function AuthProvider({ children }) {
         
         // Create session in database (this will invalidate other sessions)
         if (data.session.access_token) {
-          const sessionResult = await createSession(data.user.id, data.session.access_token)
+          isCreatingSessionRef.current = true // Mark that we're creating a session
+          setIsSessionInvalid(false) // Clear invalid flag before creating
           
-          if (sessionResult.success && sessionResult.previousSessionsInvalidated > 0) {
-            // Other sessions were invalidated - this is expected behavior
-            console.log(`Previous ${sessionResult.previousSessionsInvalidated} session(s) invalidated`)
+          try {
+            const sessionResult = await createSession(data.user.id, data.session.access_token)
+            
+            if (sessionResult.success) {
+              // Session created successfully - clear invalid flag
+              setIsSessionInvalid(false)
+              setLogoutMessage(null)
+              
+              // Wait a bit before allowing validation (let session commit to DB)
+              setTimeout(() => {
+                isCreatingSessionRef.current = false
+              }, 1500) // 1.5 second grace period for DB commit
+            } else {
+              console.error('Failed to create session:', sessionResult.error)
+              isCreatingSessionRef.current = false
+            }
+          } catch (error) {
+            console.error('Error creating session:', error)
+            isCreatingSessionRef.current = false
           }
         }
         
