@@ -85,7 +85,13 @@ export function AuthProvider({ children }) {
           profileLoadCache.add(userId)
           loadProfile(userId).finally(() => {
             profileLoadCache.delete(userId)
+            if (isMounted) {
+              setLoading(false)
+            }
           })
+        } else {
+          // Profile already loading, just set loading to false
+          setLoading(false)
         }
       } else if (isMounted) {
         setLoading(false)
