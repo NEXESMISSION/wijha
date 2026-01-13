@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [logoutMessage, setLogoutMessage] = useState(null)
+  const [isSessionInvalid, setIsSessionInvalid] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -83,17 +84,25 @@ export function AuthProvider({ children }) {
       if (isMounted) setLoading(false)
     })
 
-    // Set up periodic session validation (every 30 seconds)
+    // Set up periodic session validation (every 60 seconds - optimized to reduce data usage)
+    // Only validate if user is logged in and session is currently valid
     sessionValidationInterval = setInterval(async () => {
       if (!isMounted) return
       
+      // Skip validation if session is already marked as invalid (save data)
+      if (isSessionInvalid) return
+      
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+      if (session && user) {
+        // Lightweight validation - only check if we have a user
         const validation = await validateCurrentSession()
         if (!validation.isValid) {
           // Session is invalid - logout user
+          setIsSessionInvalid(true)
           if (validation.reason === 'SESSION_REPLACED') {
             setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+          } else {
+            setLogoutMessage('جلستك لم تعد صالحة. سيتم توجيهك إلى صفحة تسجيل الدخول.')
           }
           // Clear user state first
           setUser(null)
@@ -115,9 +124,17 @@ export function AuthProvider({ children }) {
           } catch (clearError) {
             // Ignore clear errors
           }
+        } else {
+          // Session is valid - clear invalid flag
+          setIsSessionInvalid(false)
         }
+      } else if (!session && user) {
+        // Lost session but user state still exists - invalidate
+        setIsSessionInvalid(true)
+        setUser(null)
+        setProfile(null)
       }
-    }, 30000) // Check every 30 seconds
+    }, 60000) // Check every 60 seconds (reduced frequency to save data)
 
     // Listen for auth changes
     const {
@@ -130,6 +147,12 @@ export function AuthProvider({ children }) {
         const validation = await validateCurrentSession()
         if (!validation.isValid) {
           // Session is invalid - don't set user, clear session
+          setIsSessionInvalid(true)
+          if (validation.reason === 'SESSION_REPLACED') {
+            setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+          } else {
+            setLogoutMessage('جلستك لم تعد صالحة. سيتم توجيهك إلى صفحة تسجيل الدخول.')
+          }
           setUser(null)
           setProfile(null)
           try {
@@ -147,6 +170,8 @@ export function AuthProvider({ children }) {
           return
         }
         
+        // Session is valid - clear invalid flag
+        setIsSessionInvalid(false)
         setUser(session.user)
         const userId = session.user.id
         // Load profile in background, don't block - but prevent duplicates
@@ -343,6 +368,7 @@ export function AuthProvider({ children }) {
     setUser(null)
     setProfile(null)
     setLogoutMessage(null)
+    setIsSessionInvalid(false)
   }
 
   // Combine user and profile for convenience
@@ -372,7 +398,11 @@ export function AuthProvider({ children }) {
         logout,
         loading,
         logoutMessage,
-        clearLogoutMessage: () => setLogoutMessage(null),
+        isSessionInvalid,
+        clearLogoutMessage: () => {
+          setLogoutMessage(null)
+          setIsSessionInvalid(false)
+        },
       }}
     >
       {children}

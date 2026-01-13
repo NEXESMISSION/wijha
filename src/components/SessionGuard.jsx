@@ -2,15 +2,17 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
+import SessionBlockingOverlay from './SessionBlockingOverlay'
 
 /**
  * SessionGuard Component
  * 
  * Monitors session validity and displays logout messages
  * when sessions are replaced by another device
+ * Blocks all interactions when session is invalid
  */
 export default function SessionGuard({ children }) {
-  const { logoutMessage, clearLogoutMessage } = useAuth()
+  const { logoutMessage, clearLogoutMessage, isSessionInvalid } = useAuth()
   const { showWarning } = useAlert()
   const navigate = useNavigate()
   const hasShownMessage = useRef(false)
@@ -54,6 +56,12 @@ export default function SessionGuard({ children }) {
     }
   }, [logoutMessage, clearLogoutMessage, navigate]) // Removed showWarning from dependencies
 
-  return <>{children}</>
+  return (
+    <>
+      {/* Blocking overlay prevents all interactions when session is invalid */}
+      <SessionBlockingOverlay />
+      {children}
+    </>
+  )
 }
 
