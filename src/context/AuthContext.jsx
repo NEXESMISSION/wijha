@@ -3,6 +3,12 @@ import { supabase } from '../lib/supabase'
 import { getProfile, createProfileIfMissing } from '../lib/api'
 import { createSession, validateCurrentSession, invalidateSession, checkSessionReplaced } from '../lib/sessionManager'
 
+// Only log in development mode
+const isDev = import.meta.env.DEV
+const debugLog = (...args) => {
+  if (isDev) console.log(...args)
+}
+
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
@@ -17,7 +23,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Prevent multiple simultaneous initializations
     if (isInitializingRef.current) {
-      console.log('[AuthContext] Already initializing, skipping duplicate init')
+      debugLog('[AuthContext] Already initializing, skipping duplicate init')
       return
     }
     
@@ -37,15 +43,15 @@ export function AuthProvider({ children }) {
       }
     }, 10000)
 
-    console.log('[AuthContext] Initializing auth check...')
+    debugLog('[AuthContext] Initializing auth check...')
 
     // Get initial session and validate it
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('[AuthContext] getSession result:', { hasSession: !!session, userId: session?.user?.id })
+      debugLog('[AuthContext] getSession result:', { hasSession: !!session, userId: session?.user?.id })
       
       if (session && isMounted) {
         const userId = session.user.id
-        console.log('[AuthContext] Session found, userId:', userId)
+        debugLog('[AuthContext] Session found, userId:', userId)
         
         // Set user immediately - don't block on anything
         setIsSessionInvalid(false)
@@ -83,7 +89,7 @@ export function AuthProvider({ children }) {
           }).catch(() => {})
         }
       } else if (isMounted) {
-        console.log('[AuthContext] No session found, clearing loading')
+        debugLog('[AuthContext] No session found, clearing loading')
         setLoading(false)
         loadingCleared = true
         clearTimeout(loadingTimeout)
@@ -160,9 +166,9 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[AuthContext] onAuthStateChange:', { event, hasSession: !!session, userId: session?.user?.id })
+      debugLog('[AuthContext] onAuthStateChange:', { event, hasSession: !!session, userId: session?.user?.id })
       if (!isMounted) {
-        console.log('[AuthContext] Component unmounted, ignoring auth state change')
+        debugLog('[AuthContext] Component unmounted, ignoring auth state change')
         return
       }
       
@@ -170,7 +176,7 @@ export function AuthProvider({ children }) {
         const userId = session.user.id
         
         // Set user and clear loading IMMEDIATELY - don't wait for anything
-        console.log('[AuthContext] Setting user immediately (non-blocking)')
+        debugLog('[AuthContext] Setting user immediately (non-blocking)')
         setIsSessionInvalid(false)
         setLogoutMessage(null)
         setUser(session.user)
@@ -204,11 +210,11 @@ export function AuthProvider({ children }) {
                   supabase.auth.signOut({ scope: 'local' }).catch(() => {})
                 } else if (!validation.isValid) {
                   // Other validation failures - log but don't act (might be temporary)
-                  console.log('[AuthContext] Session validation failed (non-critical):', validation.reason)
+                  debugLog('[AuthContext] Session validation failed (non-critical):', validation.reason)
                 }
               }).catch((err) => {
                 // Validation error - don't act, might be temporary network issue
-                console.log('[AuthContext] Session validation error (non-critical):', err.message)
+                debugLog('[AuthContext] Session validation error (non-critical):', err.message)
               })
             ]).finally(() => {
               isCreatingSessionRef.current = false
@@ -224,7 +230,7 @@ export function AuthProvider({ children }) {
           }).catch(() => {})
         }
       } else {
-        console.log('[AuthContext] No session in auth state change, clearing user')
+        debugLog('[AuthContext] No session in auth state change, clearing user')
         setUser(null)
         setProfile(null)
         profileLoadCache.clear()
@@ -244,7 +250,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const loadProfile = async (userId) => {
-    console.log('[AuthContext] loadProfile called for userId:', userId)
+    debugLog('[AuthContext] loadProfile called for userId:', userId)
     try {
       // Add timeout to profile loading (reduced to 5 seconds)
       const profilePromise = getProfile(userId)
@@ -252,15 +258,15 @@ export function AuthProvider({ children }) {
         setTimeout(() => reject(new Error('Profile load timeout')), 5000)
       )
       
-      console.log('[AuthContext] Waiting for profile data...')
+      debugLog('[AuthContext] Waiting for profile data...')
       const profileData = await Promise.race([profilePromise, timeoutPromise])
-      console.log('[AuthContext] Profile data received:', { hasProfile: !!profileData })
+      debugLog('[AuthContext] Profile data received:', { hasProfile: !!profileData })
       
       if (profileData) {
         setProfile(profileData)
       } else {
         // Profile doesn't exist yet - might be created by trigger soon
-        console.log('[AuthContext] No profile data, setting to null')
+        debugLog('[AuthContext] No profile data, setting to null')
         setProfile(null)
       }
     } catch (error) {
