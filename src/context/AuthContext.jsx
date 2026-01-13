@@ -27,10 +27,13 @@ export function AuthProvider({ children }) {
     let sessionValidationInterval = null
     
     // Safety timeout: Force clear loading after 10 seconds to prevent infinite loading
+    // Use a ref to track if we've already cleared loading
+    let loadingCleared = false
     let loadingTimeout = setTimeout(() => {
-      if (isMounted && loading) {
+      if (isMounted && !loadingCleared) {
         console.warn('[AuthContext] Loading timeout - forcing loading to false after 10 seconds')
         setLoading(false)
+        loadingCleared = true
       }
     }, 10000)
 
@@ -82,12 +85,14 @@ export function AuthProvider({ children }) {
       } else if (isMounted) {
         console.log('[AuthContext] No session found, clearing loading')
         setLoading(false)
+        loadingCleared = true
         clearTimeout(loadingTimeout)
       }
     }).catch((error) => {
       console.error('[AuthContext] Error in getSession:', error)
       if (isMounted) {
         setLoading(false)
+        loadingCleared = true
         clearTimeout(loadingTimeout)
       }
     })
@@ -170,6 +175,7 @@ export function AuthProvider({ children }) {
         setLogoutMessage(null)
         setUser(session.user)
         setLoading(false) // Clear loading immediately - don't wait for anything
+        loadingCleared = true
         clearTimeout(loadingTimeout) // Clear the timeout since we're done loading
         
         // Session management is ONLY to detect if another device logged in
@@ -177,27 +183,37 @@ export function AuthProvider({ children }) {
         if (session.access_token) {
           // Quick check in background - only to detect device conflicts
           // Ignore duplicate session errors - that's fine
-          Promise.all([
-            createSession(userId, session.access_token).catch((err) => {
-              // Ignore duplicate key errors - session already exists, that's fine
-              if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
-                console.warn('[AuthContext] Session creation warning:', err.message)
-              }
-            }),
-            validateCurrentSession().then(validation => {
-              // ONLY act if another device logged in (SESSION_REPLACED)
-              if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
-                console.warn('[AuthContext] Another device logged in!')
-                setIsSessionInvalid(true)
-                setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
-                setUser(null)
-                setProfile(null)
-                supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-              }
-            }).catch(() => {})
-          ]).finally(() => {
-            isCreatingSessionRef.current = false
-          })
+          // Delay validation slightly to avoid false positives right after login
+          setTimeout(() => {
+            Promise.all([
+              createSession(userId, session.access_token).catch((err) => {
+                // Ignore duplicate key errors - session already exists, that's fine
+                if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
+                  console.warn('[AuthContext] Session creation warning:', err.message)
+                }
+              }),
+              validateCurrentSession().then(validation => {
+                // ONLY act if another device logged in (SESSION_REPLACED)
+                // Don't act on other validation failures (might be temporary network issues)
+                if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
+                  console.warn('[AuthContext] Another device logged in!')
+                  setIsSessionInvalid(true)
+                  setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+                  setUser(null)
+                  setProfile(null)
+                  supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+                } else if (!validation.isValid) {
+                  // Other validation failures - log but don't act (might be temporary)
+                  console.log('[AuthContext] Session validation failed (non-critical):', validation.reason)
+                }
+              }).catch((err) => {
+                // Validation error - don't act, might be temporary network issue
+                console.log('[AuthContext] Session validation error (non-critical):', err.message)
+              })
+            ]).finally(() => {
+              isCreatingSessionRef.current = false
+            })
+          }, 2000) // Wait 2 seconds before validating to avoid false positives after login
         }
         
         // Load profile in background (non-blocking)

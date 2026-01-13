@@ -27,8 +27,11 @@ export async function createSession(userId, sessionToken) {
     // Handle duplicate key error gracefully (session already exists)
     if (error) {
       // If it's a duplicate key error, that's okay - session already exists
-      if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('already exists')) {
-        console.log('[SessionManager] Session already exists, that\'s okay')
+      if (error.code === '23505' || 
+          error.message?.includes('duplicate key') || 
+          error.message?.includes('already exists') ||
+          error.details?.includes('already exists')) {
+        // Silently handle - session already exists, that's fine
         return {
           success: true,
           sessionId: null,
@@ -36,6 +39,7 @@ export async function createSession(userId, sessionToken) {
           previousSessionsInvalidated: 0
         }
       }
+      // Only log non-duplicate errors
       console.error('Error creating session:', error)
       // Don't throw - return error instead
       return { success: false, error: error.message }
@@ -54,8 +58,11 @@ export async function createSession(userId, sessionToken) {
     return { success: false, error: 'No data returned from session creation' }
   } catch (error) {
     // Handle duplicate key error in catch block too
-    if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('already exists')) {
-      console.log('[SessionManager] Session already exists (catch), that\'s okay')
+    if (error.code === '23505' || 
+        error.message?.includes('duplicate key') || 
+        error.message?.includes('already exists') ||
+        error.details?.includes('already exists')) {
+      // Silently handle - session already exists, that's fine
       return {
         success: true,
         sessionId: null,

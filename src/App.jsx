@@ -35,7 +35,17 @@ function ProtectedRoute({ children, allowedRoles }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  // Safely get auth context - handle case where it might not be ready (React StrictMode/hot reload)
+  let user, loading
+  try {
+    const auth = useAuth()
+    user = auth.user
+    loading = auth.loading
+  } catch (err) {
+    // Auth context not ready yet - show loading
+    console.warn('[AppRoutes] Auth context not ready:', err)
+    return <div className="loading">Loading...</div>
+  }
   
   // Show loading while checking auth
   if (loading) {
