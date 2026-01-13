@@ -120,19 +120,33 @@ function CourseDetail() {
 
   useEffect(() => {
     if (course && user?.id) {
-        checkEnrollment()
-      loadSocialFeatures()
-      }
+      // Load enrollment and social features in background (non-blocking)
+      // Don't block the UI - these can load after the page is shown
+      Promise.all([
+        checkEnrollment().catch(() => {}),
+        loadSocialFeatures().catch(() => {})
+      ]).catch(() => {})
+    }
   }, [course, user])
 
   const loadCourse = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await getCourseWithModules(id)
-      setCourse(data)
       
-      // Set trailer as default active lesson/video
+      // Add timeout to prevent hanging
+      const coursePromise = getCourseWithModules(id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Course load timeout')), 5000)
+      )
+      
+      const data = await Promise.race([coursePromise, timeoutPromise])
+      
+      // Set course and clear loading IMMEDIATELY
+      setCourse(data)
+      setLoading(false) // Clear loading immediately - don't wait for anything
+      
+      // Set trailer as default active lesson/video (non-blocking)
       let trailerLesson = null
       if (data.modules && data.modules.length > 0) {
         for (const module of data.modules) {
@@ -162,9 +176,8 @@ function CourseDetail() {
         }
       }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'حدث خطأ أثناء تحميل الدورة')
       console.error('Error loading course:', err)
-    } finally {
       setLoading(false)
     }
   }
@@ -176,44 +189,57 @@ function CourseDetail() {
     }
     
     try {
-      const enrollments = await getStudentEnrollments(user.id)
+      // Add timeout to prevent hanging
+      const enrollmentPromise = getStudentEnrollments(user.id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Enrollment check timeout')), 5000)
+      )
+      
+      const enrollments = await Promise.race([enrollmentPromise, timeoutPromise])
       const courseEnrollment = enrollments.find(e => e.course_id === id)
       setEnrollment(courseEnrollment || null)
       
       if (courseEnrollment) {
-        const restrictionData = await checkEnrollmentRestriction(user.id, id)
-        setRestriction(restrictionData)
+        // Load restriction in background (non-blocking)
+        checkEnrollmentRestriction(user.id, id)
+          .then(restrictionData => setRestriction(restrictionData))
+          .catch(() => {})
       }
     } catch (err) {
       console.error('Error checking enrollment:', err)
+      // Silent fail - don't block UI
     }
   }
 
   const loadSocialFeatures = async () => {
     try {
-      const [stats, commentsData] = await Promise.all([
-        getCourseStats(id),
-        getCourseComments(id)
+      // Add timeout to prevent hanging
+      const socialPromise = Promise.all([
+        getCourseStats(id).catch(() => null),
+        getCourseComments(id).catch(() => [])
       ])
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Social features timeout')), 5000)
+      )
+      
+      const [stats, commentsData] = await Promise.race([socialPromise, timeoutPromise])
       
       setCourseStats(stats)
       setComments(commentsData || [])
       
-      // Only check like and rating if user is logged in
+      // Only check like and rating if user is logged in (non-blocking)
       if (user?.id) {
-        try {
-          const [liked, rating] = await Promise.all([
-            checkCourseLike(id, user.id),
-            getCourseRating(id, user.id)
-          ])
+        Promise.all([
+          checkCourseLike(id, user.id).catch(() => false),
+          getCourseRating(id, user.id).catch(() => 0)
+        ]).then(([liked, rating]) => {
           setIsLiked(liked)
           setUserRating(rating || 0)
-        } catch (err) {
-          // Silent fail
-        }
+        }).catch(() => {})
       }
     } catch (err) {
       console.error('Error loading social features:', err)
+      // Silent fail - don't block UI
     }
   }
 
