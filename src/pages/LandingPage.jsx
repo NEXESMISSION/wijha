@@ -126,21 +126,21 @@ function LandingPage() {
       // Load stats in background (non-blocking)
       Promise.all([
         supabase
-          .from('enrollments')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'approved')
+        .from('enrollments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
           .then(({ count, error }) => ({ count: count || 0, error }))
           .catch(() => ({ count: 0, error: null })),
         supabase
-          .from('enrollments')
-          .select('student_id')
-          .eq('status', 'approved')
+        .from('enrollments')
+        .select('student_id')
+        .eq('status', 'approved')
           .then(({ data, error }) => ({ data: data || [], error }))
           .catch(() => ({ data: [], error: null })),
         getProfileStats()
       ]).then(([enrollmentsCountResult, uniqueStudentsResult, profileStats]) => {
         const uniqueStudentIds = new Set(uniqueStudentsResult.data?.map(e => e.student_id) || [])
-        
+      
         // Update stats with real data
         setStats(prev => ({
           ...prev,

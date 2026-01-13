@@ -255,6 +255,36 @@
   margin-bottom: 2rem;
 }
 
+/* Course Cover Image - Mobile Responsive */
+.course-cover-image {
+  height: 400px;
+}
+
+@media (max-width: 768px) {
+  .course-cover-image {
+    height: 200px !important;
+  }
+}
+
+@media (max-width: 500px) {
+  .course-cover-image {
+    height: 150px !important;
+  }
+}
+
+/* Video Player - Maintain 16:9 aspect ratio, remove minHeight on mobile */
+.course-video-player {
+  aspect-ratio: 16 / 9;
+  min-height: 400px;
+}
+
+@media (max-width: 768px) {
+  .course-video-player {
+    min-height: 0 !important;
+    aspect-ratio: 16 / 9 !important;
+  }
+}
+
 .course-price-section {
   display: flex;
   align-items: center;

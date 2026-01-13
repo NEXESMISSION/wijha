@@ -574,7 +574,9 @@ function CourseDetail() {
             height: '400px',
             overflow: 'hidden',
             background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)'
-          }}>
+          }}
+          className="course-cover-image"
+          >
             <img 
               src={course.thumbnail_image_url} 
               alt={course.title}
@@ -986,7 +988,9 @@ function CourseDetail() {
           maxWidth: '100%',
           overflow: 'hidden'
         }}>
-          <div style={{
+          <div 
+            className="course-video-player"
+            style={{
             background: '#111827',
             borderRadius: '1rem',
             overflow: 'hidden',

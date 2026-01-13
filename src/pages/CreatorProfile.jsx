@@ -32,6 +32,7 @@ function CreatorProfile() {
   const [categories, setCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('')
   const [expandedCategories, setExpandedCategories] = useState({})
+  const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
 
   useEffect(() => {
     if (slug) {
@@ -168,15 +169,20 @@ function CreatorProfile() {
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '60vh',
-        fontSize: '1.25rem',
-        color: '#6b7280'
-      }}>
-        جاري تحميل الملف الشخصي...
+      <div className="creator-profile">
+        <div style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          padding: '2rem 1rem',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '60vh',
+          fontSize: '1.25rem',
+          color: '#6b7280'
+        }}>
+          جاري تحميل الملف الشخصي...
+        </div>
       </div>
     )
   }
@@ -197,23 +203,32 @@ function CreatorProfile() {
   }
 
   return (
-    <div style={{
-      maxWidth: '1600px',
-      margin: '0 auto',
-      padding: '2rem 1rem'
-    }}>
+    <div className="creator-profile">
+      <div style={{
+        maxWidth: '1400px',
+        margin: '0 auto',
+        padding: '2rem 1rem',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
       {/* Creator Header - Matching Course Page Design Exactly */}
       <div style={{
         background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
         borderRadius: '1rem',
         padding: '0',
-        marginBottom: '2rem',
+        margin: '0 0 2rem 0',
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        display: 'block'
       }}>
         {/* Cover Image - Full Width */}
         {creator.cover_image_url && (
-          <div style={{
+          <div 
+            className="creator-cover-image"
+            style={{
             width: '100%',
             height: '400px',
             overflow: 'hidden',
@@ -237,7 +252,9 @@ function CreatorProfile() {
         {/* Creator Info - Below Cover Image */}
         <div style={{
           padding: '2rem',
-          background: 'white'
+          background: 'white',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <div style={{
             display: 'flex',
@@ -373,10 +390,12 @@ function CreatorProfile() {
         gridTemplateColumns: '280px 1fr',
         gap: '2rem',
         alignItems: 'start',
-        maxWidth: '1600px',
-        margin: '0 auto',
-        padding: '0 1rem 3rem 1rem',
-        position: 'relative'
+        width: '100%',
+        maxWidth: '100%',
+        margin: '0',
+        padding: '0',
+        position: 'relative',
+        boxSizing: 'border-box'
       }}
       className="creator-layout-responsive"
       >
@@ -389,19 +408,36 @@ function CreatorProfile() {
           border: '1px solid #e5e7eb'
         }}>
           {/* Categories Section */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              color: '#1f2937',
-              marginBottom: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              📂 الفئات
-            </h3>
-            <div style={{
+          <div className="categories-section" style={{ marginBottom: '2rem' }}>
+            <button
+              onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
+              className="categories-dropdown-toggle"
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                background: 'white',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                fontSize: '0.9375rem',
+                fontWeight: 600,
+                color: '#1f2937',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '1rem'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📂 الفئات
+              </span>
+              <span style={{ fontSize: '0.75rem' }}>
+                {categoriesDropdownOpen ? '▲' : '▼'}
+              </span>
+            </button>
+            <div 
+              className={`categories-list ${categoriesDropdownOpen ? 'categories-list-open' : ''}`}
+              style={{
               display: 'flex',
               flexDirection: 'column',
               gap: '0.5rem'
@@ -988,6 +1024,7 @@ function CreatorProfile() {
           </div>
         </div>
         </main>
+      </div>
       </div>
     </div>
   )
