@@ -176,7 +176,7 @@ function CreatorDashboard() {
       setLoading(true)
       setError(null)
       
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging (increased to 10 seconds for slower connections)
       const dataPromise = Promise.all([
         getCreatorCourses(user.id).catch(() => []),
         getCreatorEarnings(user.id).catch(() => ({
@@ -187,7 +187,7 @@ function CreatorDashboard() {
         }))
       ])
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Data load timeout')), 5000)
+        setTimeout(() => reject(new Error('Data load timeout')), 10000)
       )
       
       const [coursesData, earningsData] = await Promise.race([dataPromise, timeoutPromise])

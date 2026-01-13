@@ -12,8 +12,29 @@ import SessionBlockingOverlay from './SessionBlockingOverlay'
  * Blocks all interactions when session is invalid
  */
 export default function SessionGuard({ children }) {
-  const { logoutMessage, clearLogoutMessage, isSessionInvalid, user } = useAuth()
-  const { showWarning } = useAlert()
+  // Safely get auth context - handle case where it might not be ready
+  let logoutMessage, clearLogoutMessage, isSessionInvalid, user
+  let showWarning
+  try {
+    const auth = useAuth()
+    logoutMessage = auth.logoutMessage
+    clearLogoutMessage = auth.clearLogoutMessage
+    isSessionInvalid = auth.isSessionInvalid
+    user = auth.user
+  } catch (err) {
+    // Auth context not ready yet - return children without guard
+    console.warn('[SessionGuard] Auth context not ready:', err)
+    return <>{children}</>
+  }
+  
+  try {
+    const alert = useAlert()
+    showWarning = alert.showWarning
+  } catch (err) {
+    console.warn('[SessionGuard] Alert context not ready:', err)
+    showWarning = () => {}
+  }
+  
   const navigate = useNavigate()
   const location = useLocation()
   const hasShownMessage = useRef(false)

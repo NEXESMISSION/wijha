@@ -27,8 +27,8 @@ export function AuthProvider({ children }) {
     let sessionValidationInterval = null
     
     // Safety timeout: Force clear loading after 10 seconds to prevent infinite loading
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted) {
+    let loadingTimeout = setTimeout(() => {
+      if (isMounted && loading) {
         console.warn('[AuthContext] Loading timeout - forcing loading to false after 10 seconds')
         setLoading(false)
       }
@@ -82,10 +82,14 @@ export function AuthProvider({ children }) {
       } else if (isMounted) {
         console.log('[AuthContext] No session found, clearing loading')
         setLoading(false)
+        clearTimeout(loadingTimeout)
       }
     }).catch((error) => {
       console.error('[AuthContext] Error in getSession:', error)
-      if (isMounted) setLoading(false)
+      if (isMounted) {
+        setLoading(false)
+        clearTimeout(loadingTimeout)
+      }
     })
 
     // Set up periodic session validation (every 60 seconds - optimized to reduce data usage)
@@ -166,13 +170,20 @@ export function AuthProvider({ children }) {
         setLogoutMessage(null)
         setUser(session.user)
         setLoading(false) // Clear loading immediately - don't wait for anything
+        clearTimeout(loadingTimeout) // Clear the timeout since we're done loading
         
         // Session management is ONLY to detect if another device logged in
         // Do this in background - don't block the user at all
         if (session.access_token) {
           // Quick check in background - only to detect device conflicts
+          // Ignore duplicate session errors - that's fine
           Promise.all([
-            createSession(userId, session.access_token).catch(() => {}),
+            createSession(userId, session.access_token).catch((err) => {
+              // Ignore duplicate key errors - session already exists, that's fine
+              if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
+                console.warn('[AuthContext] Session creation warning:', err.message)
+              }
+            }),
             validateCurrentSession().then(validation => {
               // ONLY act if another device logged in (SESSION_REPLACED)
               if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {

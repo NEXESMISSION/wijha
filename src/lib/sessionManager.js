@@ -24,9 +24,21 @@ export async function createSession(userId, sessionToken) {
       p_ip_address: null // IP will be captured server-side if needed
     })
 
+    // Handle duplicate key error gracefully (session already exists)
     if (error) {
+      // If it's a duplicate key error, that's okay - session already exists
+      if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('already exists')) {
+        console.log('[SessionManager] Session already exists, that\'s okay')
+        return {
+          success: true,
+          sessionId: null,
+          isNewSession: false,
+          previousSessionsInvalidated: 0
+        }
+      }
       console.error('Error creating session:', error)
-      throw error
+      // Don't throw - return error instead
+      return { success: false, error: error.message }
     }
 
     if (data && data.length > 0) {
@@ -41,6 +53,16 @@ export async function createSession(userId, sessionToken) {
 
     return { success: false, error: 'No data returned from session creation' }
   } catch (error) {
+    // Handle duplicate key error in catch block too
+    if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('already exists')) {
+      console.log('[SessionManager] Session already exists (catch), that\'s okay')
+      return {
+        success: true,
+        sessionId: null,
+        isNewSession: false,
+        previousSessionsInvalidated: 0
+      }
+    }
     console.error('Session creation failed:', error)
     return { success: false, error: error.message }
   }
