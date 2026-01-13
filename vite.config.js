@@ -13,5 +13,18 @@ export default defineConfig({
       usePolling: true,
     },
   },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
+  preview: {
+    port: 3000,
+    strictPort: true,
+  },
 })
 
