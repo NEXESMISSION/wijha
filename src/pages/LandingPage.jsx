@@ -91,6 +91,7 @@ function LandingPage() {
       // Set categories and courses immediately for faster initial render
       setCategories(categoriesData || [])
       setCourses(coursesData || [])
+      setLoading(false) // Clear loading as soon as courses are loaded
       
       // Group courses by category
       const grouped = {}

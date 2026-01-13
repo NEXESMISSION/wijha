@@ -39,6 +39,17 @@ function CreatorProfile() {
       loadProfile()
       loadCategories()
     }
+    
+    // Safety timeout: Clear loading after 10 seconds
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('[CreatorProfile] Loading timeout - forcing loading to false')
+        setLoading(false)
+        setError('انتهت مهلة التحميل. يرجى المحاولة مرة أخرى.')
+      }
+    }, 10000)
+    
+    return () => clearTimeout(loadingTimeout)
   }, [slug])
 
   useEffect(() => {
@@ -58,7 +69,14 @@ function CreatorProfile() {
     try {
       setLoading(true)
       setError(null)
-      const profileData = await getCreatorProfile(slug)
+      
+      // Add timeout to prevent hanging
+      const profilePromise = getCreatorProfile(slug)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('انتهت مهلة التحميل')), 10000)
+      )
+      
+      const profileData = await Promise.race([profilePromise, timeoutPromise])
       
       if (!profileData) {
         setError('المنشئ غير موجود')
@@ -66,12 +84,24 @@ function CreatorProfile() {
         return
       }
       
-      const [statsData, coursesData, commentsData, categoriesData] = await Promise.all([
+      // Add timeout to parallel data loading
+      const dataLoadPromise = Promise.all([
         getCreatorProfileStats(profileData.id).catch(() => null),
         getCreatorPublicCourses(profileData.id).catch(() => []),
         getCreatorProfileComments(profileData.id).catch(() => []),
         getAllCategories().catch(() => [])
       ])
+      const dataLoadTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('انتهت مهلة تحميل البيانات')), 10000)
+      )
+      
+      const [statsData, coursesData, commentsData, categoriesData] = await Promise.race([
+        dataLoadPromise,
+        dataLoadTimeout
+      ]).catch(() => {
+        // If timeout, use empty data
+        return [null, [], [], []]
+      })
       
       setCreator(profileData)
       setStats(statsData)
@@ -80,23 +110,29 @@ function CreatorProfile() {
       setComments(commentsData)
       setCategories(categoriesData || [])
       
-      // Check user's rating if logged in
+      // Check user's rating if logged in (don't block on this)
       if (user?.id && profileData.id) {
         try {
-          const { data } = await supabase
+          const ratingPromise = supabase
             .from('creator_profile_ratings')
             .select('rating')
             .eq('creator_id', profileData.id)
             .eq('user_id', user.id)
             .maybeSingle()
+          
+          const ratingTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Rating timeout')), 5000)
+          )
+          
+          const { data } = await Promise.race([ratingPromise, ratingTimeout]).catch(() => ({ data: null }))
           setUserRating(data?.rating || null)
         } catch (err) {
           // Rating might not exist, that's okay
         }
       }
     } catch (err) {
-      setError(err.message)
-      console.error('Error loading profile:', err)
+      setError(err.message || 'حدث خطأ أثناء تحميل الملف الشخصي')
+      console.error('[CreatorProfile] Error loading profile:', err)
     } finally {
       setLoading(false)
     }

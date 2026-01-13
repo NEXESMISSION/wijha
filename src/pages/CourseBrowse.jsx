@@ -52,7 +52,14 @@ function CourseBrowse() {
 
   const loadCourses = async () => {
     try {
-      setLoading(true)
+      // Don't show loading if we already have courses (for search/filter)
+      if (courses.length > 0 && (searchQuery || selectedCategory || selectedLevel)) {
+        // Show existing courses immediately while loading new ones
+        setLoading(false)
+      } else {
+        setLoading(true)
+      }
+      
       setError(null)
       
       const filters = {
@@ -69,7 +76,7 @@ function CourseBrowse() {
       })
       
       const data = await getPublishedCoursesFiltered(filters)
-      setCourses(data)
+      setCourses(data || [])
     } catch (err) {
       setError(err.message)
       console.error('Error loading courses:', err)
