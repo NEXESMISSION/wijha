@@ -250,82 +250,126 @@ export function AuthProvider({ children }) {
           console.log('[AuthContext] Ensuring session exists in DB...')
           // Try to create/update session if it doesn't exist
           // This handles the case where user just logged in
+          // Add timeout to prevent hanging
           try {
-            await createSession(userId, session.access_token)
+            const sessionCreatePromise = createSession(userId, session.access_token)
+            const sessionCreateTimeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Session creation timeout')), 5000)
+            )
+            
+            await Promise.race([sessionCreatePromise, sessionCreateTimeout])
             console.log('[AuthContext] Session created/updated in auth state change')
             // Small delay to let DB commit
             await new Promise(resolve => setTimeout(resolve, 300))
           } catch (err) {
             // If session creation fails, continue with validation anyway
             console.warn('[AuthContext] Failed to create session in auth state change:', err)
+            // Don't block - continue with validation
           }
         }
         
         // Validate session before accepting it (prevent auto-login with invalid session)
         // BUT: Only show logout message if session was REPLACED by another device
         console.log('[AuthContext] Validating session in auth state change...')
-        const validation = await validateCurrentSession()
-        console.log('[AuthContext] Validation result in auth state change:', validation)
         
-        if (!validation.isValid) {
-          console.warn('[AuthContext] Session invalid in auth state change:', validation.reason)
-          // Session is invalid
-          setIsSessionInvalid(true)
+        // Add timeout to validation to prevent hanging
+        try {
+          const validationPromise = validateCurrentSession()
+          const validationTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Validation timeout')), 5000)
+          )
           
-          // ONLY show logout message if session was REPLACED by another device
-          // Don't show message for other reasons (might be normal logout, expired, etc.)
-          if (validation.reason === 'SESSION_REPLACED') {
-            setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
-          } else {
-            // For other reasons, just logout silently (no message)
-            setLogoutMessage(null)
-          }
-          
-          setUser(null)
-          setProfile(null)
-          try {
-            await supabase.auth.signOut({ scope: 'local' })
-            // Clear localStorage
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
-                localStorage.removeItem(key)
-              }
-            })
-          } catch (error) {
-            console.error('[AuthContext] Error signing out:', error)
-          }
-          setLoading(false)
-          console.log('[AuthContext] Loading cleared (invalid session in auth state change)')
-          return
-        }
+          const validation = await Promise.race([validationPromise, validationTimeout])
+          console.log('[AuthContext] Validation result in auth state change:', validation)
         
-        // Session is valid - clear invalid flag and logout message
-        console.log('[AuthContext] Session valid in auth state change, setting user')
-        setIsSessionInvalid(false)
-        setLogoutMessage(null)
-        setUser(session.user)
-        // Load profile in background, don't block - but prevent duplicates
-        if (!profileLoadCache.has(userId)) {
-          profileLoadCache.add(userId)
-          // Add timeout to profile loading
-          const profileLoadTimeout = setTimeout(() => {
-            if (isMounted) {
-              console.warn('[AuthContext] Profile load timeout in auth state change - clearing loading state')
-              setLoading(false)
+          if (!validation.isValid) {
+            console.warn('[AuthContext] Session invalid in auth state change:', validation.reason)
+            // Session is invalid
+            setIsSessionInvalid(true)
+            
+            // ONLY show logout message if session was REPLACED by another device
+            // Don't show message for other reasons (might be normal logout, expired, etc.)
+            if (validation.reason === 'SESSION_REPLACED') {
+              setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+            } else {
+              // For other reasons, just logout silently (no message)
+              setLogoutMessage(null)
             }
-          }, 8000) // 8 second timeout for profile load
+            
+            setUser(null)
+            setProfile(null)
+            try {
+              await supabase.auth.signOut({ scope: 'local' })
+              // Clear localStorage
+              Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+                  localStorage.removeItem(key)
+                }
+              })
+            } catch (error) {
+              console.error('[AuthContext] Error signing out:', error)
+            }
+            setLoading(false)
+            console.log('[AuthContext] Loading cleared (invalid session in auth state change)')
+            return
+          }
           
-          loadProfile(userId).catch(err => {
-            console.error('[AuthContext] Auth state change profile load failed:', err)
-          }).finally(() => {
-            clearTimeout(profileLoadTimeout)
-            profileLoadCache.delete(userId)
-            console.log('[AuthContext] Profile load completed in auth state change (valid session)')
-            if (isMounted) setLoading(false)
-          })
-        } else {
-          console.log('[AuthContext] Profile already loading, clearing loading state')
-          setLoading(false)
+          // Session is valid - clear invalid flag and logout message
+          console.log('[AuthContext] Session valid in auth state change, setting user')
+          setIsSessionInvalid(false)
+          setLogoutMessage(null)
+          setUser(session.user)
+          // Load profile in background, don't block - but prevent duplicates
+          if (!profileLoadCache.has(userId)) {
+            profileLoadCache.add(userId)
+            // Add timeout to profile loading
+            const profileLoadTimeout = setTimeout(() => {
+              if (isMounted) {
+                console.warn('[AuthContext] Profile load timeout in auth state change - clearing loading state')
+                setLoading(false)
+              }
+            }, 8000) // 8 second timeout for profile load
+            
+            loadProfile(userId).catch(err => {
+              console.error('[AuthContext] Auth state change profile load failed:', err)
+            }).finally(() => {
+              clearTimeout(profileLoadTimeout)
+              profileLoadCache.delete(userId)
+              console.log('[AuthContext] Profile load completed in auth state change (valid session)')
+              if (isMounted) setLoading(false)
+            })
+          } else {
+            console.log('[AuthContext] Profile already loading, clearing loading state')
+            setLoading(false)
+          }
+        } catch (validationError) {
+          // Validation timed out or failed
+          console.error('[AuthContext] Validation error in auth state change:', validationError)
+          // If validation fails, assume session is valid and proceed (better UX than blocking)
+          console.log('[AuthContext] Validation failed, proceeding anyway to prevent blocking')
+          setIsSessionInvalid(false)
+          setLogoutMessage(null)
+          setUser(session.user)
+          // Try to load profile but don't block
+          if (!profileLoadCache.has(userId)) {
+            profileLoadCache.add(userId)
+            const profileLoadTimeout = setTimeout(() => {
+              if (isMounted) {
+                console.warn('[AuthContext] Profile load timeout (after validation error) - clearing loading state')
+                setLoading(false)
+              }
+            }, 8000)
+            
+            loadProfile(userId).catch(err => {
+              console.error('[AuthContext] Profile load failed after validation error:', err)
+            }).finally(() => {
+              clearTimeout(profileLoadTimeout)
+              profileLoadCache.delete(userId)
+              if (isMounted) setLoading(false)
+            })
+          } else {
+            setLoading(false)
+          }
         }
       } else {
         console.log('[AuthContext] No session in auth state change, clearing user')
