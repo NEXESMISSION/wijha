@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import {
   getCreatorProfile,
   getCreatorProfileStats,
@@ -8,7 +9,8 @@ import {
   getCreatorPublicCourses,
   createCreatorProfileComment,
   deleteCourseComment,
-  setCreatorProfileRating
+  setCreatorProfileRating,
+  getAllCategories
 } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import '../styles/design-system.css'
@@ -17,20 +19,39 @@ import './CreatorProfile.css'
 function CreatorProfile() {
   const { slug } = useParams()
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useAlert()
   const [creator, setCreator] = useState(null)
   const [stats, setStats] = useState(null)
   const [courses, setCourses] = useState([])
+  const [filteredCourses, setFilteredCourses] = useState([])
   const [comments, setComments] = useState([])
   const [userRating, setUserRating] = useState(null)
   const [newComment, setNewComment] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [expandedCategories, setExpandedCategories] = useState({})
 
   useEffect(() => {
     if (slug) {
       loadProfile()
+      loadCategories()
     }
   }, [slug])
+
+  useEffect(() => {
+    // Filter courses by selected category
+    if (selectedCategory) {
+      setFilteredCourses(courses.filter(course => 
+        course.category_id === selectedCategory || 
+        course.categories?.id === selectedCategory ||
+        course.categories?.parent_id === selectedCategory
+      ))
+    } else {
+      setFilteredCourses(courses)
+    }
+  }, [selectedCategory, courses])
 
   const loadProfile = async () => {
     try {
@@ -44,16 +65,19 @@ function CreatorProfile() {
         return
       }
       
-      const [statsData, coursesData, commentsData] = await Promise.all([
+      const [statsData, coursesData, commentsData, categoriesData] = await Promise.all([
         getCreatorProfileStats(profileData.id).catch(() => null),
         getCreatorPublicCourses(profileData.id).catch(() => []),
-        getCreatorProfileComments(profileData.id).catch(() => [])
+        getCreatorProfileComments(profileData.id).catch(() => []),
+        getAllCategories().catch(() => [])
       ])
       
       setCreator(profileData)
       setStats(statsData)
       setCourses(coursesData)
+      setFilteredCourses(coursesData)
       setComments(commentsData)
+      setCategories(categoriesData || [])
       
       // Check user's rating if logged in
       if (user?.id && profileData.id) {
@@ -79,7 +103,7 @@ function CreatorProfile() {
 
   const handleRate = async (rating) => {
     if (!user?.id) {
-      alert('Please login to rate creators')
+      showWarning('يرجى تسجيل الدخول لتقييم المنشئين')
       return
     }
     if (!creator?.id) return
@@ -89,19 +113,19 @@ function CreatorProfile() {
       setUserRating(rating)
       await loadProfile() // Reload to update stats
     } catch (err) {
-      alert('Error submitting rating: ' + err.message)
+      showError('خطأ في إرسال التقييم: ' + err.message)
     }
   }
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault()
     if (!user?.id) {
-      alert('Please login to comment')
+      showWarning('يرجى تسجيل الدخول لإضافة تعليق')
       return
     }
     if (!creator?.id) return
     if (!newComment.trim()) {
-      alert('Please enter a comment')
+      showWarning('يرجى إدخال تعليق')
       return
     }
     
@@ -111,7 +135,7 @@ function CreatorProfile() {
       const updatedComments = await getCreatorProfileComments(creator.id)
       setComments(updatedComments)
     } catch (err) {
-      alert('Error submitting comment: ' + err.message)
+      showError('خطأ في إرسال التعليق: ' + err.message)
     }
   }
 
@@ -122,8 +146,24 @@ function CreatorProfile() {
       const updatedComments = await getCreatorProfileComments(creator.id)
       setComments(updatedComments)
     } catch (err) {
-      alert('Error deleting comment: ' + err.message)
+      showError('خطأ في حذف التعليق: ' + err.message)
     }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const data = await getAllCategories()
+      setCategories(data)
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    }
+  }
+
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }))
   }
 
   if (loading) {
@@ -158,28 +198,27 @@ function CreatorProfile() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f6f7fb 0%, #ffffff 100%)',
-      paddingTop: '2rem'
+      maxWidth: '1600px',
+      margin: '0 auto',
+      padding: '2rem 1rem'
     }}>
-      {/* Cover Image Section - Full Width Container */}
+      {/* Creator Header - Matching Course Page Design Exactly */}
       <div style={{
-        width: '100%',
-        padding: '0 2rem',
-        marginBottom: '2rem'
+        background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
+        borderRadius: '1rem',
+        padding: '0',
+        marginBottom: '2rem',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        overflow: 'hidden'
       }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          height: '500px',
-          overflow: 'hidden',
-          position: 'relative',
-          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-          borderRadius: '1.5rem',
-          boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.2)',
-          border: '1px solid rgba(255, 255, 255, 0.2)'
-        }}>
-          {creator.cover_image_url ? (
+        {/* Cover Image - Full Width */}
+        {creator.cover_image_url && (
+          <div style={{
+            width: '100%',
+            height: '400px',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)'
+          }}>
             <img 
               src={creator.cover_image_url} 
               alt={`${creator.name} cover`}
@@ -188,239 +227,329 @@ function CreatorProfile() {
                 height: '100%',
                 objectFit: 'cover'
               }}
+              onError={(e) => {
+                e.target.style.display = 'none'
+              }}
             />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100%',
-              background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '2.5rem',
-              fontWeight: 700
-            }}>
-              {creator.name}
-            </div>
-          )}
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '120px',
-            background: 'linear-gradient(to top, rgba(246, 247, 251, 1), transparent)',
-            borderRadius: '0 0 1.5rem 1.5rem'
-          }} />
-        </div>
-      </div>
-      
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '0 24px 48px 24px'
-      }}>
-        {/* Profile Header Card */}
+          </div>
+        )}
+        
+        {/* Creator Info - Below Cover Image */}
         <div style={{
-          background: 'white',
-          borderRadius: '1.5rem',
           padding: '2rem',
-          marginTop: '-80px',
-          position: 'relative',
-          boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.8)',
-          marginBottom: '2rem',
-          zIndex: 10
+          background: 'white'
         }}>
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            gap: '1.5rem'
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: '2rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.5rem'
           }}>
-            {/* Avatar and Basic Info */}
-            <div style={{
-              display: 'flex',
-              gap: '2rem',
-              alignItems: 'flex-start',
-              flexWrap: 'wrap'
-            }}>
+            <div style={{ flex: 1, minWidth: '300px' }}>
               <div style={{
-                position: 'relative'
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                marginBottom: '1rem',
+                flexWrap: 'wrap'
               }}>
-                <div style={{
-                  width: '160px',
-                  height: '160px',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  border: '6px solid white',
-                  boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.2)',
-                  background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-                  flexShrink: 0
-                }}>
-                  <img 
-                    src={creator.profile_image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.name)}&background=7C34D9&color=fff&size=300`}
-                    onError={(e) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.name)}&background=7C34D9&color=fff&size=300`
-                      e.target.onerror = null
-                    }} 
-                    alt={creator.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ flex: 1, minWidth: '300px' }}>
                 <h1 style={{
                   fontSize: '2.5rem',
                   fontWeight: 900,
                   color: '#1f2937',
-                  marginBottom: '0.75rem',
-                  background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  lineHeight: 1.2
+                  margin: 0,
+                  lineHeight: '1.2',
+                  flex: 1,
+                  minWidth: '200px'
                 }}>
                   {creator.name}
                 </h1>
-                {creator.bio && (
-                  <p style={{
-                    color: '#4b5563',
-                    fontSize: '1.125rem',
-                    lineHeight: 1.7,
-                    marginBottom: '1rem'
-                  }}>
-                    {creator.bio}
-                  </p>
-                )}
-                {creator.website_url && (
-                  <a 
-                    href={creator.website_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      color: '#7C34D9',
-                      textDecoration: 'none',
-                      fontSize: '0.9375rem',
-                      fontWeight: 600,
-                      padding: '0.5rem 1rem',
-                      borderRadius: '0.5rem',
-                      background: '#f3f4f6',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#e5e7eb'
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = '#f3f4f6'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }}
-                  >
-                    🌐 الموقع الإلكتروني
-                  </a>
-                )}
               </div>
-            </div>
-
-            {/* Stats Cards */}
-            {stats && (
+              
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                gap: '1rem',
-                paddingTop: '1.5rem',
-                borderTop: '2px solid #e5e7eb'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1.5rem',
+                marginBottom: '1.5rem',
+                flexWrap: 'wrap'
               }}>
                 <div style={{
-                  textAlign: 'center',
-                  padding: '1rem',
-                  background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #e5e7eb'
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  textDecoration: 'none',
+                  color: '#374151',
+                  fontSize: '0.9375rem',
+                  fontWeight: 500
                 }}>
-                  <div style={{
-                    fontSize: '2rem',
-                    fontWeight: 900,
-                    color: '#1f2937',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {stats.coursesCount}
-                  </div>
-                  <div style={{
-                    fontSize: '0.875rem',
-                    color: '#6b7280',
-                    fontWeight: 600
-                  }}>
-                    دورات
-                  </div>
+                  <img 
+                    src={creator.profile_image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.name)}&background=7C34D9&color=fff`}
+                    alt={creator.name}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      background: '#e5e7eb',
+                      border: '2px solid #e5e7eb'
+                    }}
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(creator.name)}&background=7C34D9&color=fff`
+                      e.target.onerror = null
+                    }}
+                  />
+                  <span>{creator.name}</span>
                 </div>
-                <div style={{
-                  textAlign: 'center',
-                  padding: '1rem',
-                  background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
-                  borderRadius: '0.75rem',
-                  border: '1px solid #e5e7eb'
-                }}>
+                
+                {stats && (
                   <div style={{
-                    fontSize: '2rem',
-                    fontWeight: 900,
-                    color: '#1f2937',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {stats.enrollmentsCount}
-                  </div>
-                  <div style={{
-                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
                     color: '#6b7280',
-                    fontWeight: 600
+                    fontSize: '0.9375rem'
                   }}>
-                    طالب
-                  </div>
-                </div>
-                {stats.averageRating > 0 && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1rem',
-                    background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
-                    borderRadius: '0.75rem',
-                    border: '1px solid #e5e7eb'
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: 900,
-                      color: '#1f2937',
-                      marginBottom: '0.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      ⭐ {stats.averageRating.toFixed(1)}
-                    </div>
-                    <div style={{
-                      fontSize: '0.875rem',
-                      color: '#6b7280',
-                      fontWeight: 600
-                    }}>
-                      ({stats.ratingsCount} تقييم)
-                    </div>
+                    <span>📚 {stats.coursesCount} دورات</span>
+                    <span>👥 {stats.enrollmentsCount} طالب</span>
+                    {stats.averageRating > 0 && (
+                      <span>⭐ {stats.averageRating.toFixed(1)}</span>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+              
+              {creator.bio && (
+                <p style={{
+                  color: '#4b5563',
+                  fontSize: '1.125rem',
+                  lineHeight: '1.7',
+                  marginBottom: '2rem'
+                }}>
+                  {creator.bio}
+                </p>
+              )}
+              
+              {creator.website_url && (
+                <a 
+                  href={creator.website_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: '#7C34D9',
+                    textDecoration: 'none',
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    background: '#f3f4f6',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#e5e7eb'
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#f3f4f6'
+                    e.currentTarget.style.transform = 'translateY(0)'
+                  }}
+                >
+                  🌐 الموقع الإلكتروني
+                </a>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Rating Section */}
-        {user?.role === 'student' && user?.id !== creator.id && (
+      {/* Main Content with Sidebar - Wide Screens */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '280px 1fr',
+        gap: '2rem',
+        alignItems: 'start',
+        maxWidth: '1600px',
+        margin: '0 auto',
+        padding: '0 1rem 3rem 1rem',
+        position: 'relative'
+      }}
+      className="creator-layout-responsive"
+      >
+        {/* Sidebar - Categories Filter */}
+        <aside style={{
+          background: 'white',
+          borderRadius: '1.5rem',
+          padding: '1.5rem',
+          boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+          border: '1px solid #e5e7eb'
+        }}>
+          {/* Categories Section */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{
+              fontSize: '1.125rem',
+              fontWeight: 700,
+              color: '#1f2937',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              📂 الفئات
+            </h3>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem'
+            }}>
+              {/* All Categories Option */}
+              <button
+                onClick={() => setSelectedCategory('')}
+                style={{
+                  padding: '0.75rem 1rem',
+                  background: !selectedCategory ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : 'transparent',
+                  border: `2px solid ${!selectedCategory ? 'transparent' : '#e5e7eb'}`,
+                  borderRadius: '0.5rem',
+                  color: !selectedCategory ? 'white' : '#374151',
+                  fontSize: '0.9375rem',
+                  fontWeight: !selectedCategory ? 700 : 500,
+                  cursor: 'pointer',
+                  textAlign: 'right',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedCategory) {
+                    e.currentTarget.style.background = '#f9fafb'
+                    e.currentTarget.style.borderColor = '#7C34D9'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedCategory) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = '#e5e7eb'
+                  }
+                }}
+              >
+                <span>جميع الفئات</span>
+              </button>
+
+              {/* Categories with Subcategories */}
+              {categories.map(category => (
+                <div key={category.id}>
+                  <button
+                    onClick={() => {
+                      if (category.subcategories && category.subcategories.length > 0) {
+                        toggleCategory(category.id)
+                      } else {
+                        setSelectedCategory(category.id === selectedCategory ? '' : category.id)
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      background: selectedCategory === category.id ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : 'transparent',
+                      border: `2px solid ${selectedCategory === category.id ? 'transparent' : '#e5e7eb'}`,
+                      borderRadius: '0.5rem',
+                      color: selectedCategory === category.id ? 'white' : '#374151',
+                      fontSize: '0.9375rem',
+                      fontWeight: selectedCategory === category.id ? 700 : 500,
+                      cursor: 'pointer',
+                      textAlign: 'right',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: category.subcategories && category.subcategories.length > 0 && expandedCategories[category.id] ? '0.5rem' : '0'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedCategory !== category.id) {
+                        e.currentTarget.style.background = '#f9fafb'
+                        e.currentTarget.style.borderColor = '#7C34D9'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedCategory !== category.id) {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.borderColor = '#e5e7eb'
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {category.icon && <span>{category.icon}</span>}
+                      <span>{category.name}</span>
+                    </div>
+                    {category.subcategories && category.subcategories.length > 0 && (
+                      <span style={{ fontSize: '0.75rem' }}>
+                        {expandedCategories[category.id] ? '▲' : '▼'}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Subcategories */}
+                  {category.subcategories && category.subcategories.length > 0 && expandedCategories[category.id] && (
+                    <div style={{
+                      paddingRight: '1rem',
+                      marginTop: '0.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.375rem'
+                    }}>
+                      {category.subcategories.map(subcategory => (
+                        <button
+                          key={subcategory.id}
+                          onClick={() => setSelectedCategory(subcategory.id === selectedCategory ? '' : subcategory.id)}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            background: selectedCategory === subcategory.id ? 'rgba(124, 52, 217, 0.1)' : 'transparent',
+                            border: `1px solid ${selectedCategory === subcategory.id ? '#7C34D9' : '#e5e7eb'}`,
+                            borderRadius: '0.375rem',
+                            color: selectedCategory === subcategory.id ? '#7C34D9' : '#6b7280',
+                            fontSize: '0.875rem',
+                            fontWeight: selectedCategory === subcategory.id ? 600 : 400,
+                            cursor: 'pointer',
+                            textAlign: 'right',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (selectedCategory !== subcategory.id) {
+                              e.currentTarget.style.background = '#f9fafb'
+                              e.currentTarget.style.borderColor = '#7C34D9'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (selectedCategory !== subcategory.id) {
+                              e.currentTarget.style.background = 'transparent'
+                              e.currentTarget.style.borderColor = '#e5e7eb'
+                            }
+                          }}
+                        >
+                          {subcategory.icon && <span style={{ marginLeft: '0.25rem' }}>{subcategory.icon}</span>}
+                          {subcategory.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main style={{ width: '100%' }}>
+          <div style={{
+            maxWidth: '100%',
+            margin: '0 auto'
+          }}>
+            {/* Rating Section */}
+            {user?.role === 'student' && user?.id !== creator.id && (
           <div style={{
             background: 'white',
             borderRadius: '1.5rem',
@@ -533,7 +662,7 @@ function CreatorProfile() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
               gap: '1.5rem'
             }}>
-              {courses.map((course) => (
+              {filteredCourses.map((course) => (
                 <Link 
                   key={course.id} 
                   to={`/courses/${course.id}`} 
@@ -856,7 +985,9 @@ function CreatorProfile() {
               ))
             )}
           </div>
+          </div>
         </div>
+        </main>
       </div>
     </div>
   )

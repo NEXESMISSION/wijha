@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import '../styles/design-system.css'
 import {
   getAllCoursesForAdmin,
@@ -25,13 +26,14 @@ import './Dashboard.css'
 
 function AdminDashboard() {
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useAlert()
   const [activeTab, setActiveTab] = useState('overview')
   const [courses, setCourses] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [payoutRequests, setPayoutRequests] = useState([])
   const [reports, setReports] = useState([])
   const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [processing, setProcessing] = useState(null)
   const [newCategory, setNewCategory] = useState({ name: '', description: '', icon: '' })
@@ -45,14 +47,22 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (user?.id) {
-      loadAllData()
+      // Only show loading if we don't have data yet
+      if (courses.length === 0 && enrollments.length === 0 && payoutRequests.length === 0) {
+        loadAllData()
+      }
       if (activeTab === 'settings') {
         loadSettings()
       }
     }
   }, [user, activeTab])
 
-  const loadAllData = async () => {
+  const loadAllData = async (forceReload = false) => {
+    // Don't reload if we already have data unless forced
+    if (!forceReload && courses.length > 0 && enrollments.length > 0) {
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -66,11 +76,11 @@ function AdminDashboard() {
         getAllCategories().catch(() => [])
       ])
       
-      setCourses(coursesData)
-      setEnrollments(enrollmentsData)
-      setPayoutRequests(payoutsData)
-      setReports(reportsData)
-      setCategories(categoriesData)
+      setCourses(coursesData || [])
+      setEnrollments(enrollmentsData || [])
+      setPayoutRequests(payoutsData || [])
+      setReports(reportsData || [])
+      setCategories(categoriesData || [])
     } catch (err) {
       setError(err.message)
       console.error('Error loading data:', err)
@@ -96,7 +106,7 @@ function AdminDashboard() {
       })
     } catch (err) {
       console.error('Error loading settings:', err)
-      alert('Error loading platform settings: ' + err.message)
+      showError('خطأ في تحميل إعدادات المنصة: ' + err.message)
     } finally {
       setSettingsLoading(false)
     }
@@ -109,12 +119,12 @@ function AdminDashboard() {
     const paymentFee = parseFloat(platformSettings.payment_fee_percent)
     
     if (isNaN(platformFee) || platformFee < 0 || platformFee > 100) {
-      alert('Platform fee must be between 0 and 100')
+      showWarning('رسوم المنصة يجب أن تكون بين 0 و 100')
       return
     }
     
     if (isNaN(paymentFee) || paymentFee < 0 || paymentFee > 100) {
-      alert('Payment fee must be between 0 and 100')
+      showWarning('رسوم الدفع يجب أن تكون بين 0 و 100')
       return
     }
 
@@ -124,9 +134,9 @@ function AdminDashboard() {
         platform_fee_percent: platformFee / 100, // Convert percentage to decimal
         payment_fee_percent: paymentFee / 100, // Convert percentage to decimal
       }, user.id)
-      alert('Settings saved successfully!')
+      showSuccess('تم حفظ الإعدادات بنجاح!', 'تم الحفظ')
     } catch (err) {
-      alert('Error saving settings: ' + err.message)
+      showError('خطأ في حفظ الإعدادات: ' + err.message)
       console.error('Error:', err)
     } finally {
       setSavingSettings(false)
@@ -138,10 +148,10 @@ function AdminDashboard() {
       setProcessing(courseId)
       const status = action === 'approved' ? 'published' : 'suspended'
       await updateCourseStatus(courseId, status, user.id)
-      await loadData()
-      alert(`Course ${action} successfully!`)
+      await loadAllData(true)
+      showSuccess(`تم ${action === 'published' ? 'نشر' : action === 'suspended' ? 'تعليق' : 'تحديث'} الدورة بنجاح!`, 'تم التحديث')
     } catch (err) {
-      alert('Error updating course: ' + err.message)
+      showError('خطأ في تحديث الدورة: ' + err.message)
       console.error('Error:', err)
     } finally {
       setProcessing(null)
@@ -164,10 +174,10 @@ function AdminDashboard() {
     try {
       setProcessing(courseId)
       await deleteCourse(courseId)
-      await loadData()
-      alert('Course deleted successfully!')
+      await loadAllData(true)
+      showSuccess('تم حذف الدورة بنجاح!', 'تم الحذف')
     } catch (err) {
-      alert('Error deleting course: ' + err.message)
+      showError('خطأ في حذف الدورة: ' + err.message)
       console.error('Error:', err)
     } finally {
       setProcessing(null)
@@ -198,10 +208,10 @@ function AdminDashboard() {
     try {
       setProcessing(enrollmentId)
       await updateEnrollmentStatus(enrollmentId, action === 'approved' ? 'approved' : 'rejected', user.id, rejectionNote, isRestricted, restrictionReason)
-      await loadData()
-      alert(`تم ${action === 'approved' ? 'الموافقة على' : 'رفض'} التسجيل بنجاح!${isRestricted ? ' تم حظر الطالب من إعادة التسجيل.' : ''}`)
+      await loadAllData(true)
+      showSuccess(`تم ${action === 'approved' ? 'الموافقة على' : 'رفض'} التسجيل بنجاح!${isRestricted ? ' تم حظر الطالب من إعادة التسجيل.' : ''}`, 'تم التحديث')
     } catch (err) {
-      alert('Error updating enrollment: ' + err.message)
+      showError('خطأ في تحديث التسجيل: ' + err.message)
       console.error('Error:', err)
     } finally {
       setProcessing(null)
@@ -219,10 +229,10 @@ function AdminDashboard() {
     try {
       setProcessing(requestId)
       await updatePayoutRequestStatus(requestId, action === 'approved' ? 'approved' : 'rejected', user.id, adminNote)
-      await loadData()
-      alert(`تم ${action === 'approved' ? 'الموافقة على' : 'رفض'} طلب السحب بنجاح!`)
+      await loadAllData(true) // Force reload to get updated data
+      showSuccess(`تم ${action === 'approved' ? 'الموافقة على' : 'رفض'} طلب السحب بنجاح!`, 'تم التحديث')
     } catch (err) {
-      alert('Error updating payout request: ' + err.message)
+      showError('خطأ في تحديث طلب السحب: ' + err.message)
       console.error('Error:', err)
     } finally {
       setProcessing(null)
@@ -249,10 +259,10 @@ function AdminDashboard() {
     try {
       setProcessing(reportId)
       await updateReportStatus(reportId, action, user.id, adminNotes)
-      await loadData()
-      alert(`تم ${action === 'reviewed' ? 'تحديث البلاغ كتمت المراجعة' : action === 'resolved' ? 'حل البلاغ' : 'رفض البلاغ'} بنجاح!`)
+      await loadAllData(true)
+      showSuccess(`تم ${action === 'reviewed' ? 'تحديث البلاغ كتمت المراجعة' : action === 'resolved' ? 'حل البلاغ' : 'رفض البلاغ'} بنجاح!`, 'تم التحديث')
     } catch (err) {
-      alert('Error updating report: ' + err.message)
+      showError('خطأ في تحديث البلاغ: ' + err.message)
       console.error('Error:', err)
     } finally {
       setProcessing(null)
@@ -288,7 +298,7 @@ function AdminDashboard() {
     }
   }
 
-  if (loading && courses.length === 0 && enrollments.length === 0 && payoutRequests.length === 0 && reports.length === 0) {
+  if (loading && courses.length === 0 && enrollments.length === 0) {
     return (
       <div style={{
         display: 'flex',
@@ -939,49 +949,200 @@ function AdminDashboard() {
             <div className="admin-list">
               {payoutRequests.map((request) => {
                 const creatorSlug = request.profiles?.profile_slug || request.profiles?.id
+                const creatorName = request.profiles?.name || request.profiles?.email || 'منشئ غير معروف'
+                
+                const getPaymentMethodText = (method) => {
+                  switch(method) {
+                    case 'bank': return 'تحويل بنكي'
+                    case 'mobile': return 'دفع محمول'
+                    case 'cash': return 'نقدي'
+                    case 'd17': return 'D17'
+                    case 'flouci': return 'Flouci'
+                    default: return method
+                  }
+                }
+                
+                const getStatusText = (status) => {
+                  switch(status) {
+                    case 'pending': return 'قيد الانتظار'
+                    case 'approved': return 'موافق عليه'
+                    case 'rejected': return 'مرفوض'
+                    case 'canceled': return 'ملغي'
+                    case 'done': return 'مكتمل'
+                    default: return status
+                  }
+                }
+                
                 return (
-                <div key={request.id} className="admin-item">
-                  <div className="item-info">
-                      <h3>
-                        {request.profiles?.name ? (
-                          <Link to={`/creator/${creatorSlug}`} className="creator-link">
-                            {request.profiles.name}
-                          </Link>
-                        ) : (
-                          'منشئ غير معروف'
+                <div key={request.id} className="admin-item" style={{
+                  background: 'white',
+                  borderRadius: '0.75rem',
+                  padding: '1.5rem',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid #e5e7eb',
+                  marginBottom: '1rem'
+                }}>
+                  <div className="item-info" style={{ flex: 1 }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '1rem',
+                      flexWrap: 'wrap',
+                      gap: '1rem'
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{
+                          fontSize: '1.125rem',
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          marginBottom: '0.5rem'
+                        }}>
+                          {request.profiles?.name ? (
+                            <Link 
+                              to={`/creator/${creatorSlug}`} 
+                              className="creator-link"
+                              style={{
+                                color: '#7C34D9',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              {creatorName}
+                            </Link>
+                          ) : (
+                            <span style={{ color: '#6b7280' }}>{creatorName}</span>
+                          )}
+                        </h3>
+                        
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                          gap: '0.75rem',
+                          marginBottom: '0.75rem',
+                          fontSize: '0.875rem',
+                          color: '#6b7280'
+                        }}>
+                          <div>
+                            <strong style={{ color: '#374151' }}>المبلغ:</strong> 
+                            <span style={{ marginRight: '0.5rem', fontWeight: 700, color: '#1f2937' }}>
+                              {parseFloat(request.amount).toFixed(2)} د.ت
+                            </span>
+                          </div>
+                          <div>
+                            <strong style={{ color: '#374151' }}>طريقة الدفع:</strong> 
+                            <span style={{ marginRight: '0.5rem' }}>
+                              {getPaymentMethodText(request.payment_method)}
+                            </span>
+                          </div>
+                          <div>
+                            <strong style={{ color: '#374151' }}>تاريخ الإرسال:</strong> 
+                            <span style={{ marginRight: '0.5rem' }}>
+                              {new Date(request.submitted_at).toLocaleDateString('ar-TN', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {request.note && (
+                          <div style={{
+                            background: '#f9fafb',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            marginBottom: '0.75rem',
+                            border: '1px solid #e5e7eb'
+                          }}>
+                            <strong style={{ color: '#374151', display: 'block', marginBottom: '0.25rem' }}>
+                              ملاحظة:
+                            </strong>
+                            <div style={{ 
+                              color: '#6b7280',
+                              fontSize: '0.875rem',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}>
+                              {request.note}
+                            </div>
+                          </div>
                         )}
-                      </h3>
-                    <p>
-                      المبلغ: {parseFloat(request.amount).toFixed(2)} د.ت | 
-                      الطريقة: {request.payment_method === 'bank' ? 'تحويل بنكي' : request.payment_method === 'mobile' ? 'دفع محمول' : request.payment_method === 'cash' ? 'نقدي' : request.payment_method} | 
-                      تاريخ الإرسال: {new Date(request.submitted_at).toLocaleDateString('ar-TN')}
-                    </p>
-                    {request.note && <p><strong>ملاحظة:</strong> {request.note}</p>}
-                    <span className={`status-badge status-${request.status}`}>
-                      {request.status === 'pending' ? 'قيد الانتظار' : request.status === 'approved' ? 'موافق عليه' : request.status === 'rejected' ? 'مرفوض' : request.status}
-                    </span>
-                  </div>
-                  <div className="item-actions">
-                    {request.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handlePayoutAction(request.id, 'approved')}
-                          className="btn-success"
-                          disabled={processing === request.id}
-                        >
-                          {processing === request.id ? 'جاري المعالجة...' : 'موافقة'}
-                        </button>
-                        <button
-                          onClick={() => handlePayoutAction(request.id, 'rejected')}
-                          className="btn-danger"
-                          disabled={processing === request.id}
-                        >
-                          {processing === request.id ? 'جاري المعالجة...' : 'رفض'}
-                          </button>
-                        </>
-                      )}
+                        
+                        {request.admin_note && (
+                          <div style={{
+                            background: '#fef3c7',
+                            padding: '0.75rem',
+                            borderRadius: '0.5rem',
+                            marginBottom: '0.75rem',
+                            border: '1px solid #fbbf24'
+                          }}>
+                            <strong style={{ color: '#92400e', display: 'block', marginBottom: '0.25rem' }}>
+                              ملاحظة المشرف:
+                            </strong>
+                            <div style={{ 
+                              color: '#78350f',
+                              fontSize: '0.875rem',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}>
+                              {request.admin_note}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        gap: '0.5rem'
+                      }}>
+                        <span className={`status-badge status-${request.status}`} style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '0.5rem',
+                          fontSize: '0.875rem',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {getStatusText(request.status)}
+                        </span>
+                        
+                        {request.status === 'pending' && (
+                          <div className="item-actions" style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            marginTop: '0.5rem'
+                          }}>
+                            <button
+                              onClick={() => handlePayoutAction(request.id, 'approved')}
+                              className="btn-success"
+                              disabled={processing === request.id}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                fontSize: '0.875rem'
+                              }}
+                            >
+                              {processing === request.id ? 'جاري...' : 'موافقة'}
+                            </button>
+                            <button
+                              onClick={() => handlePayoutAction(request.id, 'rejected')}
+                              className="btn-danger"
+                              disabled={processing === request.id}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                fontSize: '0.875rem'
+                              }}
+                            >
+                              {processing === request.id ? 'جاري...' : 'رفض'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                </div>
                 )
               })}
             </div>
@@ -1203,7 +1364,7 @@ function AdminDashboard() {
               <button
                 onClick={async () => {
                   if (!newCategory.name.trim()) {
-                    alert('يرجى إدخال اسم الفئة')
+                    showWarning('يرجى إدخال اسم الفئة')
                     return
                   }
                   try {
@@ -1213,10 +1374,10 @@ function AdminDashboard() {
                       created_by_admin_id: user.id
                     })
                     setNewCategory({ name: '', description: '', icon: '' })
-                    await loadData()
-                    alert('تم إنشاء الفئة بنجاح!')
+                    await loadAllData(true)
+                    showSuccess('تم إنشاء الفئة بنجاح!', 'تم الإنشاء')
                   } catch (err) {
-                    alert('خطأ في إنشاء الفئة: ' + err.message)
+                    showError('خطأ في إنشاء الفئة: ' + err.message)
                   } finally {
                     setProcessing(null)
                   }
@@ -1306,10 +1467,10 @@ function AdminDashboard() {
                                 icon: editingCategory.icon
                               })
                               setEditingCategory(null)
-                              await loadData()
-                              alert('تم تحديث الفئة بنجاح!')
+                              await loadAllData(true)
+                              showSuccess('تم تحديث الفئة بنجاح!', 'تم التحديث')
                             } catch (err) {
-                              alert('خطأ في تحديث الفئة: ' + err.message)
+                              showError('خطأ في تحديث الفئة: ' + err.message)
                             } finally {
                               setProcessing(null)
                             }
@@ -1343,10 +1504,10 @@ function AdminDashboard() {
                             try {
                               setProcessing(category.id)
                               await deleteCategory(category.id)
-                              await loadData()
-                              alert('تم حذف الفئة بنجاح!')
+                              await loadAllData(true)
+                              showSuccess('تم حذف الفئة بنجاح!', 'تم الحذف')
                             } catch (err) {
-                              alert('خطأ في حذف الفئة: ' + err.message)
+                              showError('خطأ في حذف الفئة: ' + err.message)
                             } finally {
                               setProcessing(null)
                             }
@@ -1390,147 +1551,205 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
     }
   }
 
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'pending': return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' }
+      case 'approved': return { bg: '#d1fae5', text: '#065f46', border: '#10b981' }
+      case 'rejected': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' }
+      default: return { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af' }
+    }
+  }
+  
+  const statusStyle = getStatusColor(enrollment.status)
+  
   return (
-    <div className="admin-item">
-      <div className="item-info">
-        <h3>{enrollment.profiles?.name || 'طالب غير معروف'}</h3>
-        <p>
-          الدورة: {enrollment.courses?.title || 'غير معروف'} | 
-          تاريخ الإرسال: {new Date(enrollment.created_at).toLocaleDateString('ar-TN')}
-        </p>
-        {loadingProof ? (
-          <p>جاري تحميل إثبات الدفع...</p>
-        ) : paymentProof && (
-          <div className="payment-proof">
-            <strong>إثبات الدفع:</strong>
-            {paymentProof.file_url ? (
-              <img src={paymentProof.file_url} alt="إثبات الدفع" />
-            ) : paymentProof.text_proof ? (
-              <p>{paymentProof.text_proof}</p>
-            ) : null}
-            {paymentProof.payment_method && (
-              <p><strong>الطريقة:</strong> {paymentProof.payment_method === 'bank' ? 'تحويل بنكي' : paymentProof.payment_method === 'mobile' ? 'دفع محمول' : paymentProof.payment_method === 'cash' ? 'نقدي' : paymentProof.payment_method}</p>
-            )}
-            {paymentProof.notes && (
-              <p><strong>ملاحظات:</strong> {paymentProof.notes}</p>
+    <div style={{
+      background: 'white',
+      borderRadius: '0.75rem',
+      padding: '1rem',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+      border: `1px solid ${statusStyle.border}`,
+      marginBottom: '0.75rem'
+    }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr auto',
+        gap: '1rem',
+        alignItems: 'center'
+      }}>
+        {/* Left: Status Badge */}
+        <div>
+          <span style={{
+            background: statusStyle.bg,
+            color: statusStyle.text,
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            border: `2px solid ${statusStyle.border}`,
+            whiteSpace: 'nowrap'
+          }}>
+            {enrollment.status === 'pending' ? '⏳ قيد الانتظار' : enrollment.status === 'approved' ? '✅ موافق' : '❌ مرفوض'}
+          </span>
+        </div>
+        
+        {/* Center: Info */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '0.25rem',
+            flexWrap: 'wrap'
+          }}>
+            <strong style={{ color: '#1f2937', fontSize: '0.9375rem' }}>
+              {enrollment.profiles?.name || enrollment.profiles?.email || 'طالب غير معروف'}
+            </strong>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>•</span>
+            <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+              {enrollment.courses?.title || 'غير معروف'}
+            </span>
+          </div>
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            fontSize: '0.8125rem',
+            color: '#9ca3af',
+            flexWrap: 'wrap'
+          }}>
+            <span>📅 {new Date(enrollment.created_at).toLocaleDateString('ar-TN')}</span>
+            {paymentProof && paymentProof.payment_method && (
+              <span>💳 {paymentProof.payment_method === 'bank' ? 'تحويل بنكي' : paymentProof.payment_method === 'mobile' ? 'دفع محمول' : paymentProof.payment_method === 'cash' ? 'نقدي' : paymentProof.payment_method}</span>
             )}
           </div>
-        )}
-        <span className={`status-badge status-${enrollment.status}`}>
-          {enrollment.status === 'pending' ? 'قيد الانتظار' : enrollment.status === 'approved' ? 'موافق عليه' : enrollment.status === 'rejected' ? 'مرفوض' : enrollment.status}
-        </span>
-        
-        {/* Rejection Notice */}
-        {enrollment.status === 'rejected' && (
-          <div style={{
-            background: '#fef2f2',
-            border: '2px solid #fecaca',
-            borderRadius: '0.75rem',
-            padding: '1rem',
-            marginTop: '1rem'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '0.75rem'
-            }}>
-              <span style={{ fontSize: '1.25rem' }}>❌</span>
-              <strong style={{ 
-                color: '#dc2626', 
-                fontSize: '1rem',
-                fontWeight: 700
-              }}>
-                تم رفض التسجيل
-              </strong>
+          
+          {/* Payment Proof - Compact */}
+          {loadingProof ? (
+            <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.5rem' }}>
+              جاري تحميل إثبات الدفع...
             </div>
-            
-            {/* Rejection Reason */}
+          ) : paymentProof && (
             <div style={{
-              background: 'white',
+              marginTop: '0.5rem',
+              padding: '0.5rem',
+              background: '#f9fafb',
+              borderRadius: '0.5rem',
+              fontSize: '0.8125rem'
+            }}>
+              {paymentProof.file_url ? (
+                <details style={{ cursor: 'pointer' }}>
+                  <summary style={{ color: '#6b7280', fontWeight: 600 }}>
+                    📎 إثبات الدفع (صورة)
+                  </summary>
+                  <img 
+                    src={paymentProof.file_url} 
+                    alt="إثبات الدفع" 
+                    style={{
+                      maxWidth: '200px',
+                      maxHeight: '200px',
+                      marginTop: '0.5rem',
+                      borderRadius: '0.5rem',
+                      border: '1px solid #e5e7eb'
+                    }}
+                  />
+                </details>
+              ) : paymentProof.text_proof ? (
+                <details style={{ cursor: 'pointer' }}>
+                  <summary style={{ color: '#6b7280', fontWeight: 600 }}>
+                    📝 إثبات الدفع (نص)
+                  </summary>
+                  <p style={{ marginTop: '0.5rem', color: '#374151', whiteSpace: 'pre-wrap' }}>
+                    {paymentProof.text_proof}
+                  </p>
+                </details>
+              ) : null}
+              {paymentProof.notes && (
+                <div style={{ marginTop: '0.25rem', color: '#6b7280', fontSize: '0.75rem' }}>
+                  💬 {paymentProof.notes}
+                </div>
+              )}
+            </div>
+          )}
+        
+          {/* Rejection Notice - Compact */}
+          {enrollment.status === 'rejected' && (
+            <details style={{
+              marginTop: '0.5rem',
+              background: '#fef2f2',
               border: '1px solid #fecaca',
               borderRadius: '0.5rem',
-              padding: '0.75rem',
-              marginTop: '0.5rem'
+              padding: '0.5rem'
             }}>
-              <strong style={{ 
-                color: '#991b1b', 
-                display: 'block', 
-                marginBottom: '0.5rem',
-                fontSize: '0.875rem'
+              <summary style={{
+                cursor: 'pointer',
+                color: '#dc2626',
+                fontWeight: 600,
+                fontSize: '0.8125rem'
               }}>
-                سبب الرفض:
-              </strong>
-              <p style={{ 
-                color: '#991b1b', 
-                fontSize: '0.875rem', 
-                lineHeight: '1.6',
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
+                ❌ سبب الرفض
+              </summary>
+              <div style={{
+                marginTop: '0.5rem',
+                padding: '0.5rem',
+                background: 'white',
+                borderRadius: '0.25rem',
+                fontSize: '0.8125rem',
+                color: '#991b1b',
+                whiteSpace: 'pre-wrap'
               }}>
                 {enrollment.rejection_note || 'لم يتم تحديد سبب محدد للرفض.'}
-              </p>
-            </div>
-            
-            {/* Restriction Notice */}
-            {enrollment.is_restricted && enrollment.restriction_reason && (
-              <div style={{
-                background: '#fff7ed',
-                border: '1px solid #fed7aa',
-                borderRadius: '0.5rem',
-                padding: '0.75rem',
-                marginTop: '0.75rem'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  marginBottom: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '1rem' }}>⚠️</span>
-                  <strong style={{ 
-                    color: '#c2410c', 
-                    fontSize: '0.875rem',
-                    fontWeight: 700
-                  }}>
-                    محظور من التسجيل:
-                  </strong>
-                </div>
-                <p style={{ 
-                  color: '#9a3412', 
-                  fontSize: '0.875rem',
-                  lineHeight: '1.6',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word'
-                }}>
-                  {enrollment.restriction_reason}
-                </p>
               </div>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="item-actions">
-        {enrollment.status === 'pending' && (
-          <>
-            <button
-              onClick={() => onAction(enrollment.id, 'approved')}
-              className="btn-success"
-              disabled={processing}
-            >
-              {processing ? 'جاري المعالجة...' : 'موافقة'}
-            </button>
-            <button
-              onClick={() => onAction(enrollment.id, 'rejected')}
-              className="btn-danger"
-              disabled={processing}
-            >
-              {processing ? 'جاري المعالجة...' : 'رفض'}
-            </button>
-          </>
-        )}
+              {enrollment.is_restricted && enrollment.restriction_reason && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  background: '#fff7ed',
+                  borderRadius: '0.25rem',
+                  fontSize: '0.8125rem',
+                  color: '#9a3412'
+                }}>
+                  <strong>⚠️ محظور:</strong> {enrollment.restriction_reason}
+                </div>
+              )}
+            </details>
+          )}
+        </div>
+        
+        {/* Right: Actions */}
+        <div style={{
+          display: 'flex',
+          gap: '0.5rem',
+          flexShrink: 0
+        }}>
+          {enrollment.status === 'pending' && (
+            <>
+              <button
+                onClick={() => onAction(enrollment.id, 'approved')}
+                className="btn-success"
+                disabled={processing}
+                style={{
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.875rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {processing ? '...' : '✅'}
+              </button>
+              <button
+                onClick={() => onAction(enrollment.id, 'rejected')}
+                className="btn-danger"
+                disabled={processing}
+                style={{
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.875rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {processing ? '...' : '❌'}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import { 
   getCourseWithModules, 
   createEnrollment, 
@@ -251,7 +252,7 @@ function CourseDetail() {
 
   const handleEnrollSubmit = async () => {
     if (!paymentFile) {
-      alert('يرجى رفع إثبات الدفع')
+      showWarning('يرجى رفع إثبات الدفع')
       return
     }
 
@@ -278,14 +279,14 @@ function CourseDetail() {
       })
       }
 
-      alert('تم إرسال طلب التسجيل بنجاح! في انتظار الموافقة.')
+      showSuccess('تم إرسال طلب التسجيل بنجاح! في انتظار الموافقة.', 'تم إرسال الطلب')
       setShowEnrollModal(false)
       setEnrollStep(1)
       setPaymentFile(null)
       setPaymentNotes('')
       await checkEnrollment()
     } catch (err) {
-      alert('خطأ في التسجيل: ' + err.message)
+      showError('خطأ في التسجيل: ' + err.message)
       console.error('Error submitting enrollment:', err)
     } finally {
       setSubmitting(false)
@@ -305,7 +306,7 @@ function CourseDetail() {
 
   const handleLike = async () => {
     if (!user?.id) {
-      alert('يرجى تسجيل الدخول أولاً')
+      showWarning('يرجى تسجيل الدخول أولاً')
       return
     }
     try {
@@ -313,13 +314,13 @@ function CourseDetail() {
       setIsLiked(!isLiked)
       await loadSocialFeatures()
     } catch (err) {
-      alert('خطأ في تحديث الإعجاب: ' + err.message)
+      showError('خطأ في تحديث الإعجاب: ' + err.message)
     }
   }
 
   const handleRate = async (rating) => {
     if (!user?.id) {
-      alert('يرجى تسجيل الدخول أولاً')
+      showWarning('يرجى تسجيل الدخول أولاً')
       return
     }
     try {
@@ -327,7 +328,7 @@ function CourseDetail() {
       setUserRating(rating)
       await loadSocialFeatures()
     } catch (err) {
-      alert('خطأ في التقييم: ' + err.message)
+      showError('خطأ في التقييم: ' + err.message)
     }
   }
 
@@ -340,7 +341,7 @@ function CourseDetail() {
       setNewComment('')
       await loadSocialFeatures()
     } catch (err) {
-      alert('خطأ في إضافة التعليق: ' + err.message)
+      showError('خطأ في إضافة التعليق: ' + err.message)
     }
   }
 
@@ -351,7 +352,7 @@ function CourseDetail() {
       await deleteCourseComment(commentId)
       await loadSocialFeatures()
     } catch (err) {
-      alert('خطأ في حذف التعليق: ' + err.message)
+      showError('خطأ في حذف التعليق: ' + err.message)
     }
   }
 
@@ -367,9 +368,9 @@ function CourseDetail() {
         reason,
         status: 'pending'
       })
-      alert('تم إرسال البلاغ بنجاح')
+      showSuccess('تم إرسال البلاغ بنجاح', 'تم الإرسال')
     } catch (err) {
-      alert('خطأ في إرسال البلاغ: ' + err.message)
+      showError('خطأ في إرسال البلاغ: ' + err.message)
     }
   }
 
@@ -1514,6 +1515,94 @@ function CourseDetail() {
             {/* Step 1: Choose Payment Method */}
             {enrollStep === 1 && (
               <div>
+                {/* Course Details Section */}
+                {course && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f9fafb 0%, #ffffff 100%)',
+                    borderRadius: '1rem',
+                    padding: '1.5rem',
+                    marginBottom: '2rem',
+                    border: '2px solid #e5e7eb',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: '1rem',
+                      marginBottom: '1rem',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <h3 style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          marginBottom: '0.5rem',
+                          lineHeight: '1.4'
+                        }}>
+                          {course.title}
+                        </h3>
+                        {course.description && (
+                          <p style={{
+                            fontSize: '0.875rem',
+                            color: '#6b7280',
+                            lineHeight: '1.6',
+                            margin: 0,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {course.description}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        gap: '0.5rem',
+                        flexShrink: 0
+                      }}>
+                        <div style={{
+                          fontSize: '0.75rem',
+                          color: '#6b7280',
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          السعر
+                        </div>
+                        <div style={{
+                          fontSize: '2rem',
+                          fontWeight: 900,
+                          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          lineHeight: '1'
+                        }}>
+                          {parseFloat(course.price || 0).toFixed(2)} د.ت
+                        </div>
+                      </div>
+                    </div>
+                    {course.creator_name && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        paddingTop: '1rem',
+                        borderTop: '1px solid #e5e7eb',
+                        fontSize: '0.875rem',
+                        color: '#6b7280'
+                      }}>
+                        <span>👤</span>
+                        <span>المنشئ: <strong style={{ color: '#374151' }}>{course.creator_name}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',

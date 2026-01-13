@@ -10,6 +10,9 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
+/* Cover Image - Matching Course Page Design */
+/* Styles are now inline to match course page exactly */
+
 .profile-cover img {
   width: 100%;
   height: 100%;
@@ -284,6 +287,18 @@
   font-style: italic;
 }
 
+/* Layout styles */
+.creator-layout-responsive {
+  /* Removed sticky positioning fixes */
+}
+
+/* Creator Layout - Responsive */
+@media (max-width: 1024px) {
+  .creator-layout-responsive {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 @media (max-width: 768px) {
   .profile-header {
     flex-direction: column;
@@ -399,13 +414,8 @@
     margin-bottom: 1rem !important;
   }
   
-  div[style*="height: '500px'"] {
-    height: 50px !important; /* Very small on mobile - reduced by 10 times from original 500px */
-    border-radius: 0.5rem !important;
-  }
-  
-  div[style*="height: '120px'"] {
-    height: 20px !important; /* Minimal gradient overlay height */
+  div[style*="height: '400px'"] {
+    height: 250px !important;
   }
   
   div[style*="fontSize: '2.5rem'"] {
@@ -418,127 +428,38 @@
   }
   
   /* Profile Header Card - Mobile */
-  div[style*="marginTop: '-80px'"] {
-    margin-top: -40px !important;
-    padding: 1rem 0.75rem !important;
-    border-radius: 1rem !important;
-    margin-bottom: 1.5rem !important;
-  }
-  
-  /* Avatar Section - Mobile */
-  div[style*="display: 'flex'"][style*="gap: '2rem'"] {
-    flex-direction: column !important;
-    align-items: center !important;
+  .creator-profile-header {
     gap: 1rem !important;
-    text-align: center !important;
   }
   
-  div[style*="position: 'relative'"] img[style*="width: '200px'"] {
-    width: 120px !important;
-    height: 120px !important;
+  /* Profile Info Container - Mobile */
+  div[style*="padding: '2rem'"][style*="background: 'white'"] {
+    padding: 1.5rem 1rem !important;
   }
   
+  /* Title - Mobile */
   h1[style*="fontSize: '2.5rem'"] {
-    font-size: 1.5rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-  
-  p[style*="fontSize: '1.125rem'"] {
-    font-size: 0.9375rem !important;
-    margin-bottom: 0.75rem !important;
-  }
-  
-  /* Stats Grid - Mobile */
-  div[style*="display: 'grid'"][style*="gridTemplateColumns: 'repeat(3"] {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 0.75rem !important;
-    padding: 1rem 0.5rem !important;
-  }
-  
-  div[style*="textAlign: 'center'"] strong {
-    font-size: 1.125rem !important;
-  }
-  
-  div[style*="textAlign: 'center'"] span {
-    font-size: 0.75rem !important;
-  }
-  
-  /* Rating Section - Mobile */
-  div[style*="background: 'white'"][style*="borderRadius: '1.5rem'"][style*="padding: '2rem'"][style*="marginTop: '2rem'"] {
-    padding: 1.25rem 0.875rem !important;
-    border-radius: 1rem !important;
-    margin-top: 1.5rem !important;
-  }
-  
-  h2[style*="fontSize: '1.75rem'"] {
-    font-size: 1.25rem !important;
-    margin-bottom: 1rem !important;
-  }
-  
-  /* Star Rating - Mobile */
-  div[style*="display: 'flex'"][style*="gap: '0.5rem'"] button {
     font-size: 1.75rem !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
+    line-height: 1.3 !important;
   }
   
-  /* Courses Grid - Mobile */
-  div[style*="display: 'grid'"][style*="gridTemplateColumns: 'repeat(auto-fill"] {
-    grid-template-columns: 1fr !important;
-    gap: 1rem !important;
-    margin-top: 1rem !important;
-  }
-  
-  /* Course Card - Mobile */
-  a[class*="course-card"] {
-    border-radius: 0.875rem !important;
-  }
-  
-  div[style*="height: '150px'"] {
-    height: 180px !important;
-  }
-  
-  div[style*="padding: '1rem'"] h3 {
+  /* Bio - Mobile */
+  p[style*="fontSize: '1.125rem'"] {
     font-size: 1rem !important;
-    margin-bottom: 0.5rem !important;
+    line-height: 1.6 !important;
   }
   
-  /* Comments Section - Mobile */
-  form[style*="marginBottom: '2rem'"] {
-    margin-bottom: 1.5rem !important;
-  }
-  
-  textarea[style*="width: '100%'"] {
-    font-size: 16px !important; /* Prevents iOS zoom */
-    padding: 0.875rem !important;
-    min-height: 100px !important;
-    border-radius: 0.5rem !important;
-  }
-  
-  /* Comment Items - Mobile */
-  div[style*="padding: '1rem'"][style*="background: '#f9f9f9'"] {
-    padding: 0.875rem !important;
-    border-radius: 0.75rem !important;
-    margin-bottom: 0.875rem !important;
+  /* Stats - Mobile */
+  div[style*="display: 'flex'"][style*="alignItems: 'center'"][style*="gap: '1.5rem'"] {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
   }
   
   div[style*="display: 'flex'"][style*="alignItems: 'center'"][style*="gap: '1rem'"] {
+    flex-wrap: wrap !important;
     gap: 0.75rem !important;
-    margin-bottom: 0.5rem !important;
-  }
-  
-  img[style*="width: '40px'"] {
-    width: 36px !important;
-    height: 36px !important;
-  }
-  
-  /* Buttons - Mobile */
-  button[style*="padding: '0.75rem 1.5rem'"] {
-    width: 100% !important;
-    padding: 0.875rem 1.25rem !important;
     font-size: 0.875rem !important;
-    min-height: 44px !important;
-    margin-top: 0.5rem !important;
   }
   
   /* Social Links - Mobile */
@@ -553,5 +474,35 @@
     font-size: 0.8125rem !important;
     min-height: 44px !important;
   }
+  
+  /* Creator Layout - Mobile */
+  .creator-layout-responsive {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Sidebar - Mobile */
+  aside {
+    margin-bottom: 2rem !important;
+  }
+  
+  /* Fix scroll issues on mobile */
+  .creator-layout-responsive {
+    overflow-x: hidden !important;
+  }
+  
+  main[style*="width: '100%'"] {
+    overflow-x: hidden !important;
+  }
 }
 
+/* Wide Screen - Match Container Widths */
+@media (min-width: 1200px) {
+  .creator-layout-responsive {
+    grid-template-columns: 280px 1fr !important;
+  }
+  
+  /* Ensure main content matches courses section width */
+  main[style*="width: '100%'"] {
+    max-width: 1200px;
+  }
+}

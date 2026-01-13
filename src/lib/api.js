@@ -605,6 +605,29 @@ export const getCreatorPayoutRequests = async (creatorId) => {
   return data
 }
 
+export const getPendingPayoutRequests = async (creatorId) => {
+  const { data, error } = await supabase
+    .from('payout_requests')
+    .select('*')
+    .eq('creator_id', creatorId)
+    .eq('status', 'pending')
+    .order('submitted_at', { ascending: false })
+  
+  if (error) throw error
+  return data || []
+}
+
+export const getAllCreatorPayoutRequests = async (creatorId) => {
+  const { data, error } = await supabase
+    .from('payout_requests')
+    .select('*')
+    .eq('creator_id', creatorId)
+    .order('submitted_at', { ascending: false })
+  
+  if (error) throw error
+  return data || []
+}
+
 export const getAllPayoutRequests = async () => {
   const { data, error } = await supabase
     .from('payout_requests')
@@ -613,13 +636,48 @@ export const getAllPayoutRequests = async () => {
       profiles:creator_id (
         id,
         name,
-        profile_slug
+        profile_slug,
+        email
       )
     `)
     .order('submitted_at', { ascending: false })
   
-  if (error) throw error
-  return data
+  if (error) {
+    console.error('Error fetching payout requests:', error)
+    // Try alternative query if first fails
+    const { data: altData, error: altError } = await supabase
+      .from('payout_requests')
+      .select('*')
+      .order('submitted_at', { ascending: false })
+    
+    if (altError) {
+      throw altError
+    }
+    
+    // Manually fetch profiles if join failed
+    if (altData && altData.length > 0) {
+      const creatorIds = [...new Set(altData.map(r => r.creator_id))]
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, name, profile_slug, email')
+        .in('id', creatorIds)
+      
+      const profilesMap = {}
+      if (profilesData) {
+        profilesData.forEach(p => {
+          profilesMap[p.id] = p
+        })
+      }
+      
+      return altData.map(request => ({
+        ...request,
+        profiles: profilesMap[request.creator_id] || null
+      }))
+    }
+    
+    return altData || []
+  }
+  return data || []
 }
 
 export const updatePayoutRequestStatus = async (requestId, status, adminId, adminNote = null) => {

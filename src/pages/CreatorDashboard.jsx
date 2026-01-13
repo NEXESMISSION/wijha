@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getCreatorCourses, getCreatorEarnings, createPayoutRequest, getProfile, updateCreatorProfile } from '../lib/api'
+import { useAlert } from '../context/AlertContext'
+import { getCreatorCourses, getCreatorEarnings, createPayoutRequest, getProfile, updateCreatorProfile, getPendingPayoutRequests, getAllCreatorPayoutRequests } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import '../styles/design-system.css'
 import './Dashboard.css'
@@ -9,6 +10,7 @@ import './CreatorDashboard.css'
 
 function CreatorDashboard() {
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useAlert()
   const [courses, setCourses] = useState([])
   const [earnings, setEarnings] = useState({
     totalEarnings: 0,
@@ -16,13 +18,16 @@ function CreatorDashboard() {
     netEarnings: 0,
     enrollmentsCount: 0,
   })
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showPayoutModal, setShowPayoutModal] = useState(false)
   const [payoutAmount, setPayoutAmount] = useState('')
-  const [payoutMethod, setPayoutMethod] = useState('bank')
+  const [payoutMethod, setPayoutMethod] = useState('d17')
   const [payoutNote, setPayoutNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [payoutPhone, setPayoutPhone] = useState('')
+  const [payoutRIB, setPayoutRIB] = useState('')
+  const [payoutBankName, setPayoutBankName] = useState('')
   const [activeTab, setActiveTab] = useState('courses')
   const [profile, setProfile] = useState(null)
   const [profileForm, setProfileForm] = useState({
@@ -34,15 +39,81 @@ function CreatorDashboard() {
   })
   const [savingProfile, setSavingProfile] = useState(false)
   const [courseEarningsMap, setCourseEarningsMap] = useState({})
+  const [payoutHistory, setPayoutHistory] = useState([])
+  const [loadingPayoutHistory, setLoadingPayoutHistory] = useState(false)
 
   useEffect(() => {
     if (user?.id) {
-      loadData()
+      // Only show loading if we don't have data yet
+      if (courses.length === 0 && earnings.totalEarnings === 0) {
+        loadData()
+      }
+      loadProfile() // Always load profile to show profile button
+      if (activeTab === 'payouts') {
+        loadPayoutHistory() // Always reload to get latest payout statuses
+      }
       if (activeTab === 'profile') {
-        loadProfile()
+        // Profile already loaded above
       }
     }
   }, [user, activeTab])
+  
+  // Recalculate earnings when payout history changes (e.g., status updates)
+  useEffect(() => {
+    if (user?.id && earnings.totalEarnings > 0) {
+      // Calculate from base net earnings (totalEarnings - platformFees), not from modified netEarnings
+      const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+      const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+      
+      // Only update if different to avoid infinite loops
+      if (Math.abs(earnings.netEarnings - availableEarnings) > 0.01) {
+        setEarnings(prev => ({
+          ...prev,
+          netEarnings: availableEarnings
+        }))
+      }
+    }
+  }, [payoutHistory.map(p => `${p.id}-${p.status}-${p.amount}`).join(','), earnings.totalEarnings, earnings.platformFees])
+  
+  const calculateAvailableEarnings = (baseNetEarnings, payouts) => {
+    if (!payouts || payouts.length === 0) {
+      return baseNetEarnings
+    }
+    
+    // Only subtract approved and pending payouts
+    // Rejected/canceled payouts don't affect earnings (money stays in account)
+    const approvedPayouts = payouts.filter(p => p.status === 'approved' || p.status === 'done')
+    const pendingPayouts = payouts.filter(p => p.status === 'pending')
+    
+    const totalApproved = approvedPayouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+    const totalPending = pendingPayouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+    
+    // Available = Base Net earnings - approved (already paid) - pending (reserved)
+    return Math.max(0, baseNetEarnings - totalApproved - totalPending)
+  }
+  
+  const loadPayoutHistory = async () => {
+    try {
+      setLoadingPayoutHistory(true)
+      const payouts = await getAllCreatorPayoutRequests(user.id)
+      setPayoutHistory(payouts || [])
+      
+      // Recalculate available earnings based on payout statuses
+      if (earnings.totalEarnings > 0) {
+        const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+        const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payouts)
+        setEarnings(prev => ({
+          ...prev,
+          netEarnings: availableEarnings
+        }))
+      }
+    } catch (err) {
+      console.error('Error loading payout history:', err)
+      showError('خطأ في تحميل سجل السحوبات: ' + err.message)
+    } finally {
+      setLoadingPayoutHistory(false)
+    }
+  }
   
   const loadProfile = async () => {
     try {
@@ -78,17 +149,22 @@ function CreatorDashboard() {
         website_url: profileForm.website_url || null,
       })
       
-      alert('تم تحديث الملف الشخصي بنجاح!')
+      showSuccess('تم تحديث الملف الشخصي بنجاح!')
       await loadProfile()
     } catch (err) {
-      alert('خطأ في حفظ الملف الشخصي: ' + err.message)
+      showError('خطأ في حفظ الملف الشخصي: ' + err.message)
       console.error('Error:', err)
     } finally {
       setSavingProfile(false)
     }
   }
 
-  const loadData = async () => {
+  const loadData = async (forceReload = false) => {
+    // Don't reload if we already have data unless forced
+    if (!forceReload && courses.length > 0 && earnings.totalEarnings > 0) {
+      return
+    }
+    
     try {
       setLoading(true)
       setError(null)
@@ -96,11 +172,33 @@ function CreatorDashboard() {
         getCreatorCourses(user.id),
         getCreatorEarnings(user.id),
       ])
-      setCourses(coursesData)
-      setEarnings(earningsData)
+      setCourses(coursesData || [])
+      
+      // Load payout history to calculate correct available earnings
+      const payouts = await getAllCreatorPayoutRequests(user.id).catch(() => [])
+      setPayoutHistory(payouts)
+      
+      const baseEarnings = earningsData || {
+        totalEarnings: 0,
+        platformFees: 0,
+        netEarnings: 0,
+        enrollmentsCount: 0,
+      }
+      
+      // Calculate available earnings (subtract approved and pending payouts)
+      // Use base net earnings (totalEarnings - platformFees) for calculation
+      const baseNetEarnings = baseEarnings.totalEarnings - baseEarnings.platformFees
+      const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payouts)
+      
+      setEarnings({
+        ...baseEarnings,
+        netEarnings: availableEarnings
+      })
       
       // Load per-course earnings
-      await loadCourseEarnings(coursesData)
+      if (coursesData && coursesData.length > 0) {
+        await loadCourseEarnings(coursesData)
+      }
     } catch (err) {
       setError(err.message)
       console.error('Error loading data:', err)
@@ -168,35 +266,108 @@ function CreatorDashboard() {
   const handlePayoutRequest = async (e) => {
     e.preventDefault()
     const amount = parseFloat(payoutAmount)
+    const MIN_PAYOUT = 100
     
-    if (amount > earnings.netEarnings) {
-      alert('المبلغ يتجاوز الرصيد المتاح')
+    // Check for pending payouts first (before any validation)
+    try {
+      const pendingPayouts = await getPendingPayoutRequests(user.id)
+      if (pendingPayouts && pendingPayouts.length > 0) {
+        const totalPending = pendingPayouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+        showWarning(
+          `لديك طلب سحب قيد الانتظار بمبلغ ${totalPending.toFixed(2)} د.ت. يرجى انتظار معالجة الطلب الحالي قبل إرسال طلب جديد.`,
+          'طلب سحب قيد الانتظار'
+        )
+        return
+      }
+    } catch (err) {
+      console.error('Error checking pending payouts:', err)
+      // Continue with validation if check fails
+    }
+    
+    if (amount < MIN_PAYOUT) {
+      showWarning(`الحد الأدنى للسحب هو ${MIN_PAYOUT} د.ت`)
+      return
+    }
+    
+    // Calculate available earnings including payout deductions
+    const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+    const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+    
+    if (amount > availableEarnings) {
+      showWarning(`المبلغ يتجاوز الرصيد المتاح (${availableEarnings.toFixed(2)} د.ت)`)
       return
     }
 
     if (amount <= 0) {
-      alert('يجب أن يكون المبلغ أكبر من 0')
+      showWarning('يجب أن يكون المبلغ أكبر من 0')
       return
+    }
+
+    // Validate payment method specific fields
+    if (payoutMethod === 'd17' || payoutMethod === 'flouci') {
+      if (!payoutPhone || payoutPhone.trim() === '') {
+        showWarning('الرجاء إدخال رقم الهاتف')
+        return
+      }
+    }
+
+    if (payoutMethod === 'bank') {
+      if (!payoutRIB || payoutRIB.trim() === '') {
+        showWarning('الرجاء إدخال رقم RIB')
+        return
+      }
+      if (!payoutBankName || payoutBankName.trim() === '') {
+        showWarning('الرجاء إدخال اسم صاحب الحساب البنكي')
+        return
+      }
     }
 
     try {
       setSubmitting(true)
+      
+      // Build payment details note
+      let paymentDetails = ''
+      if (payoutMethod === 'd17' || payoutMethod === 'flouci') {
+        paymentDetails = `رقم الهاتف: ${payoutPhone}`
+      } else if (payoutMethod === 'bank') {
+        paymentDetails = `RIB: ${payoutRIB}, اسم صاحب الحساب: ${payoutBankName}`
+      }
+      
+      const fullNote = paymentDetails + (payoutNote ? `\nملاحظة: ${payoutNote}` : '')
+      
       await createPayoutRequest({
         creator_id: user.id,
         amount,
         payment_method: payoutMethod,
-        note: payoutNote || null,
+        note: fullNote || null,
         status: 'pending',
       })
       
-      alert('تم إرسال طلب السحب بنجاح!')
+      showSuccess('تم بدء عملية السحب بنجاح! سيتم تحويل المبلغ خلال 1-3 أيام عمل.', 'تم بدء عملية السحب')
       setShowPayoutModal(false)
       setPayoutAmount('')
       setPayoutNote('')
-      const earningsData = await getCreatorEarnings(user.id)
-      setEarnings(earningsData)
+      setPayoutPhone('')
+      setPayoutRIB('')
+      setPayoutBankName('')
+      
+      // Reload earnings and payout history to update available balance
+      const [earningsData, payouts] = await Promise.all([
+        getCreatorEarnings(user.id),
+        getAllCreatorPayoutRequests(user.id).catch(() => [])
+      ])
+      
+      setPayoutHistory(payouts)
+      
+      // Calculate available earnings (subtract approved and pending payouts)
+      const availableEarnings = calculateAvailableEarnings(earningsData, payouts)
+      
+      setEarnings({
+        ...earningsData,
+        netEarnings: availableEarnings
+      })
     } catch (err) {
-      alert('خطأ في إرسال طلب السحب: ' + err.message)
+      showError('خطأ في إرسال طلب السحب: ' + err.message)
       console.error('Error:', err)
     } finally {
       setSubmitting(false)
@@ -283,9 +454,10 @@ function CreatorDashboard() {
         <div style={{
           display: 'flex',
           gap: '1rem',
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          alignItems: 'center'
         }}>
-          {profile?.profile_slug && (
+          {profile?.profile_slug ? (
             <Link 
               to={`/creator/${profile.profile_slug}`} 
               className="btn-secondary"
@@ -293,6 +465,15 @@ function CreatorDashboard() {
             >
               عرض ملفي الشخصي
             </Link>
+          ) : (
+            <button
+              onClick={() => setActiveTab('profile')}
+              className="btn-secondary"
+              style={{ padding: '0.75rem 1.5rem' }}
+              title="قم بإعداد ملفك الشخصي أولاً"
+            >
+              عرض ملفي الشخصي
+            </button>
           )}
           <Link 
             to="/creator/create-course" 
@@ -328,6 +509,22 @@ function CreatorDashboard() {
           دوراتي ({courses.length})
         </button>
         <button
+          onClick={() => setActiveTab('payouts')}
+          style={{
+            padding: '1rem 2rem',
+            background: 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'payouts' ? '3px solid #7C34D9' : '3px solid transparent',
+            color: activeTab === 'payouts' ? '#7C34D9' : '#6b7280',
+            fontWeight: activeTab === 'payouts' ? 700 : 500,
+            fontSize: '1rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+        >
+          💰 سجل السحوبات ({payoutHistory.filter(p => p.status === 'pending').length > 0 ? payoutHistory.filter(p => p.status === 'pending').length : ''})
+        </button>
+        <button
           onClick={() => setActiveTab('profile')}
           style={{
             padding: '1rem 2rem',
@@ -348,6 +545,220 @@ function CreatorDashboard() {
       {error && (
         <div className="error-message" style={{ marginBottom: '2rem' }}>
           خطأ في تحميل البيانات: {error}
+        </div>
+      )}
+
+      {activeTab === 'payouts' && (
+        <div style={{
+          background: 'white',
+          borderRadius: '1rem',
+          padding: '2rem',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h2 style={{
+            fontSize: '1.75rem',
+            fontWeight: 700,
+            color: '#1f2937',
+            marginBottom: '2rem'
+          }}>
+            💰 سجل السحوبات
+          </h2>
+          
+          {loadingPayoutHistory ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#6b7280'
+            }}>
+              جاري تحميل سجل السحوبات...
+            </div>
+          ) : payoutHistory.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#6b7280'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💰</div>
+              <p>لا توجد سحوبات حتى الآن</p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              {payoutHistory.map((payout) => {
+                const getStatusColor = (status) => {
+                  switch(status) {
+                    case 'pending': return { bg: '#fef3c7', text: '#92400e', border: '#fbbf24' }
+                    case 'approved': return { bg: '#d1fae5', text: '#065f46', border: '#10b981' }
+                    case 'rejected': return { bg: '#fee2e2', text: '#991b1b', border: '#ef4444' }
+                    case 'canceled': return { bg: '#f3f4f6', text: '#374151', border: '#9ca3af' }
+                    case 'done': return { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' }
+                    default: return { bg: '#f3f4f6', text: '#6b7280', border: '#9ca3af' }
+                  }
+                }
+                
+                const getStatusText = (status) => {
+                  switch(status) {
+                    case 'pending': return 'قيد الانتظار'
+                    case 'approved': return 'موافق عليه'
+                    case 'rejected': return 'مرفوض'
+                    case 'canceled': return 'ملغي'
+                    case 'done': return 'مكتمل'
+                    default: return status
+                  }
+                }
+                
+                const getPaymentMethodText = (method) => {
+                  switch(method) {
+                    case 'bank': return 'تحويل بنكي'
+                    case 'mobile': return 'دفع محمول'
+                    case 'cash': return 'نقدي'
+                    case 'd17': return 'D17'
+                    case 'flouci': return 'Flouci'
+                    default: return method
+                  }
+                }
+                
+                const statusStyle = getStatusColor(payout.status)
+                
+                const isPending = payout.status === 'pending'
+                
+                return (
+                  <div key={payout.id} style={{
+                    border: `2px solid ${statusStyle.border}`,
+                    borderRadius: '0.75rem',
+                    padding: '1.5rem',
+                    background: statusStyle.bg,
+                    boxShadow: isPending ? '0 4px 12px rgba(251, 191, 36, 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    borderWidth: isPending ? '3px' : '2px',
+                    position: 'relative',
+                    ...(isPending && {
+                      animation: 'pulse 2s infinite'
+                    })
+                  }}>
+                    {isPending && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '1rem',
+                        background: '#fbbf24',
+                        color: '#92400e',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '1rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                      }}>
+                        ⏳ قيد الانتظار
+                      </div>
+                    )}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '1rem',
+                      flexWrap: 'wrap',
+                      gap: '1rem'
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          marginBottom: '0.5rem'
+                        }}>
+                          {parseFloat(payout.amount).toFixed(2)} د.ت
+                        </div>
+                        <div style={{
+                          fontSize: '0.875rem',
+                          color: '#6b7280',
+                          marginBottom: '0.25rem'
+                        }}>
+                          طريقة الدفع: {getPaymentMethodText(payout.payment_method)}
+                        </div>
+                        <div style={{
+                          fontSize: '0.875rem',
+                          color: '#6b7280'
+                        }}>
+                          تاريخ الإرسال: {new Date(payout.submitted_at).toLocaleDateString('ar-TN', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                        {payout.approved_at && (
+                          <div style={{
+                            fontSize: '0.875rem',
+                            color: '#6b7280',
+                            marginTop: '0.25rem'
+                          }}>
+                            تاريخ المعالجة: {new Date(payout.approved_at).toLocaleDateString('ar-TN', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{
+                        background: 'white',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '0.5rem',
+                        border: `2px solid ${statusStyle.border}`
+                      }}>
+                        <span style={{
+                          color: statusStyle.text,
+                          fontWeight: 700,
+                          fontSize: '0.875rem'
+                        }}>
+                          {getStatusText(payout.status)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {payout.note && (
+                      <div style={{
+                        background: 'white',
+                        padding: '0.75rem',
+                        borderRadius: '0.5rem',
+                        marginTop: '0.75rem',
+                        fontSize: '0.875rem',
+                        color: '#374151'
+                      }}>
+                        <strong>تفاصيل الدفع:</strong>
+                        <div style={{ marginTop: '0.25rem', whiteSpace: 'pre-wrap' }}>
+                          {payout.note}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {payout.admin_note && (
+                      <div style={{
+                        background: 'white',
+                        padding: '0.75rem',
+                        borderRadius: '0.5rem',
+                        marginTop: '0.75rem',
+                        fontSize: '0.875rem',
+                        color: '#374151',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <strong>ملاحظة المشرف:</strong>
+                        <div style={{ marginTop: '0.25rem', whiteSpace: 'pre-wrap' }}>
+                          {payout.admin_note}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -746,16 +1157,16 @@ function CreatorDashboard() {
 
       {activeTab === 'courses' && (
         <>
-          {/* Earnings Summary Cards - Reorganized */}
+          {/* Earnings Summary Cards - Simplified */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '1.5rem',
             marginBottom: '3rem'
           }}
           className="earnings-grid-responsive"
           >
-            {/* Net Earnings Card - Featured (Full Width on Mobile) */}
+            {/* Earnings Card - Single Combined Card */}
             <div style={{
               background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
               borderRadius: '1rem',
@@ -779,24 +1190,103 @@ function CreatorDashboard() {
                 <div style={{
                   fontSize: '0.875rem',
                   opacity: 0.9,
-                  marginBottom: '0.75rem',
+                  marginBottom: '0.5rem',
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem'
                 }}>
-                  💰 الرصيد المتاح
+                  💰 أرباحي الصافية
                 </div>
                 <div style={{
                   fontSize: '2.5rem',
                   fontWeight: 900,
-                  marginBottom: '1.5rem',
+                  marginBottom: '1rem',
                   lineHeight: 1.2
                 }}>
-                  {earnings.netEarnings.toFixed(2)} د.ت
+                  {(() => {
+                    const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                    return calculateAvailableEarnings(baseNetEarnings, payoutHistory).toFixed(2)
+                  })()} د.ت
                 </div>
-          <button 
-            onClick={() => setShowPayoutModal(true)} 
+                
+                {/* Breakdown */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: '0.75rem',
+                  padding: '1rem',
+                  marginBottom: '1.5rem',
+                  backdropFilter: 'blur(10px)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '0.5rem',
+                    fontSize: '0.875rem',
+                    opacity: 0.95
+                  }}>
+                    <span>إجمالي الأرباح:</span>
+                    <span style={{ fontWeight: 700 }}>{earnings.totalEarnings.toFixed(2)} د.ت</span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '0.875rem',
+                    opacity: 0.85,
+                    paddingTop: '0.5rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}>
+                    <span>رسوم المنصة ({earnings.platformFeePercent?.toFixed(2) || '10.00'}%):</span>
+                    <span style={{ fontWeight: 600, color: '#fecaca' }}>-{earnings.platformFees.toFixed(2)} د.ت</span>
+                  </div>
+                  {(() => {
+                    const approvedPayouts = payoutHistory.filter(p => p.status === 'approved' || p.status === 'done')
+                    const pendingPayouts = payoutHistory.filter(p => p.status === 'pending')
+                    const totalApproved = approvedPayouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+                    const totalPending = pendingPayouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+                    
+                    if (totalApproved > 0 || totalPending > 0) {
+                      return (
+                        <>
+                          {totalApproved > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '0.875rem',
+                              opacity: 0.85,
+                              paddingTop: '0.5rem',
+                              borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+                            }}>
+                              <span>السحوبات المدفوعة:</span>
+                              <span style={{ fontWeight: 600, color: '#fecaca' }}>-{totalApproved.toFixed(2)} د.ت</span>
+                            </div>
+                          )}
+                          {totalPending > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: '0.875rem',
+                              opacity: 0.85,
+                              paddingTop: '0.5rem',
+                              borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+                            }}>
+                              <span>السحوبات قيد الانتظار:</span>
+                              <span style={{ fontWeight: 600, color: '#fbbf24' }}>-{totalPending.toFixed(2)} د.ت</span>
+                            </div>
+                          )}
+                        </>
+                      )
+                    }
+                    return null
+                  })()}
+                </div>
+                
+                <button 
+                  onClick={() => setShowPayoutModal(true)} 
                   style={{
                     background: 'white',
                     color: '#7C34D9',
@@ -805,14 +1295,28 @@ function CreatorDashboard() {
                     padding: '0.75rem 1.25rem',
                     fontSize: '0.9375rem',
                     fontWeight: 700,
-                    cursor: earnings.netEarnings <= 0 ? 'not-allowed' : 'pointer',
-                    opacity: earnings.netEarnings <= 0 ? 0.5 : 1,
+                    cursor: (() => {
+                      const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                      const available = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+                      return available <= 0 ? 'not-allowed' : 'pointer'
+                    })(),
+                    opacity: (() => {
+                      const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                      const available = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+                      return available <= 0 ? 0.5 : 1
+                    })(),
                     width: '100%',
                     transition: 'all 0.2s'
                   }}
-            disabled={earnings.netEarnings <= 0}
+                  disabled={(() => {
+                    const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                    const available = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+                    return available <= 0
+                  })()}
                   onMouseEnter={(e) => {
-                    if (earnings.netEarnings > 0) {
+                    const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                    const available = calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+                    if (available > 0) {
                       e.target.style.transform = 'translateY(-2px)'
                       e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
                     }
@@ -822,9 +1326,9 @@ function CreatorDashboard() {
                     e.target.style.boxShadow = 'none'
                   }}
                 >
-                  طلب سحب
-          </button>
-        </div>
+                  سحب الأرباح
+                </button>
+              </div>
             </div>
 
             {/* Total Courses */}
@@ -915,56 +1419,6 @@ function CreatorDashboard() {
                 طالب مسجل
               </div>
             </div>
-
-            {/* Total Earnings */}
-            <div style={{
-              background: 'white',
-              borderRadius: '1rem',
-              padding: '1.75rem',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-              border: '2px solid #e5e7eb',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div>
-                <div style={{
-                  fontSize: '0.8125rem',
-                  color: '#6b7280',
-                  marginBottom: '0.75rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  💵 إجمالي الأرباح
-                </div>
-                <div style={{
-                  fontSize: '2.25rem',
-                  fontWeight: 900,
-                  color: '#1f2937',
-                  marginBottom: '0.5rem',
-                  lineHeight: 1.2
-                }}>
-                  {earnings.totalEarnings.toFixed(2)} د.ت
-                </div>
-              </div>
-              <div style={{
-                fontSize: '0.75rem',
-                color: '#6b7280',
-                borderTop: '1px solid #e5e7eb',
-                paddingTop: '0.75rem',
-                marginTop: '0.75rem',
-                lineHeight: 1.5
-              }}>
-                <div style={{ marginBottom: '0.25rem' }}>
-                  <strong>رسوم المنصة:</strong> {earnings.platformFeePercent?.toFixed(2) || '10.00'}%
-                </div>
-                <div style={{ color: '#ef4444', fontWeight: 600 }}>
-                  {earnings.platformFees.toFixed(2)} د.ت
-        </div>
-        </div>
-        </div>
       </div>
 
           {/* Courses List */}
@@ -1265,10 +1719,17 @@ function CreatorDashboard() {
                   fontSize: '1.5rem',
                   fontWeight: 900,
                   color: '#1f2937',
+                  marginBottom: '0.5rem'
+                }}>
+                  سحب الأرباح
+                </h2>
+                <p style={{
+                  color: '#6b7280',
+                  fontSize: '0.875rem',
                   marginBottom: '1.5rem'
                 }}>
-                  طلب سحب
-                </h2>
+                  سيتم تحويل المبلغ خلال 1-3 أيام عمل
+                </p>
             <form onSubmit={handlePayoutRequest}>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label style={{
@@ -1281,7 +1742,10 @@ function CreatorDashboard() {
                     </label>
                     <input 
                       type="text" 
-                      value={`${earnings.netEarnings.toFixed(2)} د.ت`} 
+                      value={`${(() => {
+                        const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                        return calculateAvailableEarnings(baseNetEarnings, payoutHistory).toFixed(2)
+                      })()} د.ت`} 
                       disabled
                       style={{
                         width: '100%',
@@ -1307,10 +1771,14 @@ function CreatorDashboard() {
                   type="number"
                   value={payoutAmount}
                   onChange={(e) => setPayoutAmount(e.target.value)}
-                  max={earnings.netEarnings}
+                  max={(() => {
+                    const baseNetEarnings = earnings.totalEarnings - earnings.platformFees
+                    return calculateAvailableEarnings(baseNetEarnings, payoutHistory)
+                  })()}
+                  min="100"
                   step="0.01"
                   required
-                      placeholder="أدخل المبلغ"
+                      placeholder="الحد الأدنى: 100 د.ت"
                       style={{
                         width: '100%',
                         padding: '0.75rem',
@@ -1319,6 +1787,14 @@ function CreatorDashboard() {
                         fontSize: '1rem'
                       }}
                 />
+                <small style={{
+                  fontSize: '0.75rem',
+                  color: '#6b7280',
+                  marginTop: '0.25rem',
+                  display: 'block'
+                }}>
+                  الحد الأدنى للسحب: 100 د.ت
+                </small>
               </div>
                   <div className="form-group" style={{ marginBottom: '1rem' }}>
                     <label style={{
@@ -1331,7 +1807,13 @@ function CreatorDashboard() {
                     </label>
                 <select
                   value={payoutMethod}
-                  onChange={(e) => setPayoutMethod(e.target.value)}
+                  onChange={(e) => {
+                    setPayoutMethod(e.target.value)
+                    // Clear fields when changing method
+                    setPayoutPhone('')
+                    setPayoutRIB('')
+                    setPayoutBankName('')
+                  }}
                   required
                       style={{
                         width: '100%',
@@ -1339,14 +1821,112 @@ function CreatorDashboard() {
                         border: '2px solid #e5e7eb',
                         borderRadius: '0.5rem',
                         fontSize: '1rem',
-                        background: 'white'
+                        background: 'white',
+                        cursor: 'pointer'
                       }}
                     >
+                      <option value="d17">D17</option>
                       <option value="bank">تحويل بنكي</option>
-                      <option value="mobile">دفع محمول</option>
-                      <option value="cash">نقدي</option>
+                      <option value="flouci">Flouci</option>
                 </select>
               </div>
+
+              {/* Payment Method Specific Fields */}
+              {(payoutMethod === 'd17' || payoutMethod === 'flouci') && (
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.5rem',
+                    fontWeight: 600,
+                    color: '#374151'
+                  }}>
+                    {payoutMethod === 'd17' && (
+                      <img 
+                        src="https://play-lh.googleusercontent.com/lOgvUGpz6YUSXJG48kbzGrTEohIC8FDr_WkP6rwgaELR0g5o6OQu5-VPGexKoB8F0C-_" 
+                        alt="D17"
+                        style={{ width: '60px', height: 'auto' }}
+                      />
+                    )}
+                    {payoutMethod === 'flouci' && (
+                      <img 
+                        src="https://flouci.com/static/img/gallery/Logos_flouci-horizontal-gradient.12157bd2c525.png" 
+                        alt="Flouci"
+                        style={{ width: '80px', height: 'auto' }}
+                      />
+                    )}
+                    <span>رقم الهاتف *</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={payoutPhone}
+                    onChange={(e) => setPayoutPhone(e.target.value)}
+                    required
+                    placeholder="مثال: 12345678"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '0.5rem',
+                      fontSize: '1rem'
+                    }}
+                  />
+                </div>
+              )}
+
+              {payoutMethod === 'bank' && (
+                <>
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '0.5rem',
+                      fontWeight: 600,
+                      color: '#374151'
+                    }}>
+                      رقم RIB *
+                    </label>
+                    <input
+                      type="text"
+                      value={payoutRIB}
+                      onChange={(e) => setPayoutRIB(e.target.value)}
+                      required
+                      placeholder="مثال: 1234567890123456789012"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '0.5rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '0.5rem',
+                      fontWeight: 600,
+                      color: '#374151'
+                    }}>
+                      اسم صاحب الحساب البنكي *
+                    </label>
+                    <input
+                      type="text"
+                      value={payoutBankName}
+                      onChange={(e) => setPayoutBankName(e.target.value)}
+                      required
+                      placeholder="الاسم الكامل كما هو في الحساب البنكي"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '0.5rem',
+                        fontSize: '1rem'
+                      }}
+                    />
+                  </div>
+                </>
+              )}
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                     <label style={{
                       display: 'block',
@@ -1387,10 +1967,11 @@ function CreatorDashboard() {
                 </button>
                     <button 
                       type="submit" 
-                      className="btn-primary"
+                      className="btn-gradient"
                       disabled={submitting}
+                      style={{ padding: '0.75rem 2rem' }}
                     >
-                      {submitting ? 'جاري الإرسال...' : 'إرسال الطلب'}
+                      {submitting ? 'جاري المعالجة...' : 'تأكيد السحب'}
                 </button>
               </div>
             </form>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import '../styles/design-system.css'
 import './Auth.css'
 
@@ -33,7 +34,6 @@ function Signup() {
     }
     
     try {
-      console.log('Attempting signup...', { name, email, role })
       // Add timeout to prevent hanging
       const signupPromise = signup(name, email, password, role)
       const timeoutPromise = new Promise((_, reject) => 
@@ -44,7 +44,7 @@ function Signup() {
       
       if (result.success) {
         if (result.message) {
-          alert(result.message)
+          showSuccess(result.message, 'تم التسجيل')
           navigate('/login', { replace: true })
         } else {
           setTimeout(() => {

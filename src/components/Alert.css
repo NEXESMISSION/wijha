@@ -1,0 +1,51 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.alert-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.alert-modal {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .alert-modal {
+    max-width: 95% !important;
+    margin: 1rem;
+  }
+  
+  .alert-modal > div:first-child {
+    padding: 1.25rem 1.5rem !important;
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .alert-modal > div:first-child > div:last-child {
+    padding: 1rem 1.5rem !important;
+    flex-direction: column;
+  }
+  
+  .alert-modal > div:last-child button {
+    width: 100% !important;
+  }
+}
+

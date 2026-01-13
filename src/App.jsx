@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { AlertProvider } from './context/AlertContext'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import StudentDashboard from './pages/StudentDashboard'
@@ -147,7 +148,9 @@ function App() {
       }}
     >
       <AuthProvider>
-        <AppRoutes />
+        <AlertProvider>
+          <AppRoutes />
+        </AlertProvider>
       </AuthProvider>
     </Router>
   )

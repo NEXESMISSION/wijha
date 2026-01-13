@@ -1049,31 +1049,43 @@
     margin-top: 0.75rem !important;
   }
   
-  /* Video and Lessons Grid - Mobile */
+  /* Video and Lessons Grid - Mobile - Force Column Layout */
   div[style*="display: 'grid'"][style*="gridTemplateColumns: 'minmax(0, 2fr)"],
   div[class*="course-video-lessons-grid"] {
-    grid-template-columns: 1fr !important;
-    gap: 1.5rem !important;
-    margin-bottom: 1.5rem !important;
     display: flex !important;
     flex-direction: column !important;
+    grid-template-columns: none !important;
+    gap: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
   }
   
-  /* Video Player - First on Mobile */
+  /* Video Player - First on Mobile (on top) */
   div[class*="course-video-lessons-grid"] > div:first-child {
     order: 1 !important;
     width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Video Container Inside - Mobile */
+  div[class*="course-video-lessons-grid"] > div:first-child > div {
+    width: 100% !important;
+    max-width: 100% !important;
     margin-bottom: 1.5rem !important;
   }
   
-  /* Lessons List - Second on Mobile */
+  /* Lessons List - Second on Mobile (below video) */
   div[class*="course-video-lessons-grid"] > div:last-child {
     order: 2 !important;
     width: 100% !important;
+    max-width: 100% !important;
     position: relative !important;
     top: 0 !important;
     max-height: none !important;
     overflow-y: visible !important;
+    height: auto !important;
+    flex-shrink: 0 !important;
   }
   
   /* Prevent Stacking Issues - Add More Spacing */

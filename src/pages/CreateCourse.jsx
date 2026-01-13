@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import { createCourse, createModule, createLesson, getAllCategories } from '../lib/api'
 import { uploadThumbnail } from '../lib/storage'
 import '../styles/design-system.css'
@@ -9,6 +10,7 @@ import './CourseForm.css'
 function CreateCourse() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useAlert()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -31,6 +33,7 @@ function CreateCourse() {
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [activeSection, setActiveSection] = useState('basic') // 'basic', 'media', 'content'
 
   useEffect(() => {
     loadCategories()
@@ -143,7 +146,7 @@ function CreateCourse() {
       setThumbnailPreview(null)
       // Show alert with detailed instructions
       if (errorMessage.includes('course-videos')) {
-        alert(
+        showWarning(
           'يرجى إنشاء دلو التخزين أولاً:\n\n' +
           '1. اذهب إلى Supabase Dashboard\n' +
           '2. اضغط على Storage في القائمة الجانبية\n' +
@@ -151,7 +154,8 @@ function CreateCourse() {
           '4. أدخل اسم الدلو: course-videos\n' +
           '5. اختر Public (عام)\n' +
           '6. اضغط "Create bucket"\n\n' +
-          'بعد ذلك، حاول رفع الصورة مرة أخرى.'
+          'بعد ذلك، حاول رفع الصورة مرة أخرى.',
+          'دلو التخزين غير موجود'
         )
       }
     } finally {
@@ -221,18 +225,12 @@ function CreateCourse() {
         }
       }
 
-      alert('تم إنشاء الدورة بنجاح! في انتظار موافقة المشرف.')
+      showSuccess('تم إنشاء الدورة بنجاح! في انتظار موافقة المشرف.', 'تم إنشاء الدورة')
       navigate('/')
     } catch (err) {
       setError(err.message)
       console.error('Error creating course:', err)
-      console.error('User object:', { id: user?.id, role: user?.role, profile: user })
-      console.error('Course data being sent:', {
-        creator_id: user?.id,
-        title: formData.title,
-        status: 'pending'
-      })
-      alert('Error creating course: ' + err.message)
+      showError('خطأ في إنشاء الدورة: ' + err.message)
     } finally {
       setSubmitting(false)
     }
@@ -240,7 +238,7 @@ function CreateCourse() {
 
   return (
     <div className="course-form-page" style={{
-      maxWidth: '1000px',
+      maxWidth: '1200px',
       margin: '0 auto',
       padding: '2rem 1rem'
     }}>
@@ -251,7 +249,9 @@ function CreateCourse() {
         <h1 style={{
           fontSize: '2.5rem',
           fontWeight: 900,
-          color: '#1f2937',
+          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
           marginBottom: '0.5rem'
         }}>إنشاء دورة جديدة</h1>
         <p style={{
@@ -261,28 +261,112 @@ function CreateCourse() {
       </div>
 
       {error && (
-        <div className="error-message">{error}</div>
+        <div className="error-message" style={{
+          background: '#fee2e2',
+          border: '1px solid #fecaca',
+          color: '#991b1b',
+          padding: '1rem',
+          borderRadius: '0.5rem',
+          marginBottom: '1.5rem'
+        }}>{error}</div>
       )}
 
-      <form onSubmit={handleSubmit} className="course-form" style={{
-        background: 'white',
-        borderRadius: '1rem',
-        padding: '2rem',
-        boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)'
+      {/* Section Navigation */}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '2rem',
+        flexWrap: 'wrap',
+        justifyContent: 'center'
       }}>
-        <div className="form-section" style={{
-          marginBottom: '3rem',
-          paddingBottom: '2rem',
-          borderBottom: '2px solid #e5e7eb'
-        }}>
+        <button
+          type="button"
+          onClick={() => setActiveSection('basic')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: '0.75rem',
+            border: 'none',
+            background: activeSection === 'basic' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : '#f3f4f6',
+            color: activeSection === 'basic' ? 'white' : '#6b7280',
+            fontWeight: activeSection === 'basic' ? 700 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontSize: '1rem'
+          }}
+        >
+          📝 المعلومات الأساسية
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSection('media')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: '0.75rem',
+            border: 'none',
+            background: activeSection === 'media' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : '#f3f4f6',
+            color: activeSection === 'media' ? 'white' : '#6b7280',
+            fontWeight: activeSection === 'media' ? 700 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontSize: '1rem'
+          }}
+        >
+          🎬 الوسائط
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSection('content')}
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: '0.75rem',
+            border: 'none',
+            background: activeSection === 'content' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : '#f3f4f6',
+            color: activeSection === 'content' ? 'white' : '#6b7280',
+            fontWeight: activeSection === 'content' ? 700 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            fontSize: '1rem'
+          }}
+        >
+          📚 الوحدات والدروس
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="course-form">
+        {/* Basic Information Section */}
+        {activeSection === 'basic' && (
+        <div className="form-section-card" style={{
+        background: 'white',
+          borderRadius: '1.5rem',
+          padding: '2.5rem',
+          boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+          marginBottom: '2rem',
+          border: '1px solid #e5e7eb'
+      }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginBottom: '2rem',
+            paddingBottom: '1.5rem',
+            borderBottom: '2px solid #f3f4f6'
+          }}>
+            <span style={{ fontSize: '2rem' }}>📝</span>
           <h2 style={{
-            fontSize: '1.5rem',
+              fontSize: '1.75rem',
             fontWeight: 700,
             color: '#1f2937',
-            marginBottom: '1.5rem'
+              margin: 0
           }}>المعلومات الأساسية</h2>
-          <div className="form-group">
-            <label className="form-label">عنوان الدورة *</label>
+          </div>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '1rem'
+            }}>عنوان الدورة *</label>
             <input
               type="text"
               name="title"
@@ -291,29 +375,66 @@ function CreateCourse() {
               required
               placeholder="أدخل عنوان الدورة"
               className="form-input"
+              style={{
+                width: '100%',
+                padding: '0.875rem 1rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.75rem',
+                fontSize: '1rem',
+                transition: 'border-color 0.2s',
+                background: 'white'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">الوصف *</label>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '1rem'
+            }}>الوصف *</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
               required
-              rows="5"
+              rows="6"
               placeholder="اوصف دورتك..."
               className="form-textarea"
+              style={{
+                width: '100%',
+                padding: '0.875rem 1rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.75rem',
+                fontSize: '1rem',
+                transition: 'border-color 0.2s',
+                background: 'white',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
 
           <div className="form-row" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '1rem'
+            gap: '1.5rem',
+            marginBottom: '1.5rem'
           }}>
             <div className="form-group">
-              <label className="form-label">السعر (د.ت) *</label>
+              <label className="form-label" style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: 600,
+                color: '#374151',
+                fontSize: '1rem'
+              }}>السعر (د.ت) *</label>
               <input
                 type="number"
                 name="price"
@@ -324,11 +445,28 @@ function CreateCourse() {
                 step="0.01"
                 placeholder="0.00"
                 className="form-input"
+                style={{
+                  width: '100%',
+                  padding: '0.875rem 1rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '0.75rem',
+                  fontSize: '1rem',
+                  transition: 'border-color 0.2s',
+                  background: 'white'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">الفئة *</label>
+              <label className="form-label" style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: 600,
+                color: '#374151',
+                fontSize: '1rem'
+              }}>الفئة *</label>
               <select
                 name="category_id"
                 value={formData.category_id}
@@ -337,13 +475,16 @@ function CreateCourse() {
                 className="form-input"
                 style={{
                   width: '100%',
-                  padding: '0.75rem',
+                  padding: '0.875rem 1rem',
                   border: '2px solid #e5e7eb',
-                  borderRadius: '0.5rem',
+                  borderRadius: '0.75rem',
                   fontSize: '1rem',
                   background: 'white',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'border-color 0.2s'
                 }}
+                onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
               >
                 <option value="">اختر الفئة</option>
                 {categories.map(cat => (
@@ -355,20 +496,87 @@ function CreateCourse() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">العلامات (مفصولة بفواصل)</label>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '1rem'
+            }}>العلامات (مفصولة بفواصل)</label>
               <input
                 type="text"
                 name="tags"
                 value={formData.tags}
                 onChange={handleInputChange}
-                placeholder="react, javascript, web"
+                placeholder="react، javascript، web"
               className="form-input"
+              style={{
+                width: '100%',
+                padding: '0.875rem 1rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.75rem',
+                fontSize: '1rem',
+                transition: 'border-color 0.2s',
+                background: 'white'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">صورة الدورة المصغرة</label>
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            marginTop: '2rem'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveSection('media')}
+              className="btn-gradient"
+              style={{ padding: '0.75rem 2rem' }}
+            >
+              التالي: الوسائط →
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Media Section */}
+        {activeSection === 'media' && (
+        <div className="form-section-card" style={{
+          background: 'white',
+          borderRadius: '1.5rem',
+          padding: '2.5rem',
+          boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+          marginBottom: '2rem',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginBottom: '2rem',
+            paddingBottom: '1.5rem',
+            borderBottom: '2px solid #f3f4f6'
+          }}>
+            <span style={{ fontSize: '2rem' }}>🎬</span>
+            <h2 style={{
+              fontSize: '1.75rem',
+              fontWeight: 700,
+              color: '#1f2937',
+              margin: 0
+            }}>الوسائط</h2>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '2rem' }}>
+            <label className="form-label" style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '1rem'
+            }}>صورة الدورة المصغرة</label>
             <input
               type="file"
               accept="image/*"
@@ -378,7 +586,8 @@ function CreateCourse() {
                 padding: '0.75rem',
                 border: '2px solid #e5e7eb',
                 borderRadius: '0.5rem',
-                fontSize: '1rem'
+                fontSize: '1rem',
+                cursor: 'pointer'
               }}
             />
             {uploadingThumbnail && (
@@ -394,8 +603,9 @@ function CreateCourse() {
                   style={{
                     maxWidth: '300px',
                     maxHeight: '200px',
-                    borderRadius: '0.5rem',
-                    border: '2px solid #e5e7eb'
+                    borderRadius: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                   }}
               />
             </div>
@@ -408,8 +618,14 @@ function CreateCourse() {
             }}>اختر صورة مصغرة للدورة (ستظهر في قوائم الدورات)</small>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">رابط المعاينة *</label>
+          <div className="form-group" style={{ marginBottom: '2rem' }}>
+            <label className="form-label" style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontWeight: 600,
+              color: '#374151',
+              fontSize: '1rem'
+            }}>رابط المعاينة *</label>
             <input
               type="url"
               value={trailerUrl}
@@ -417,6 +633,13 @@ function CreateCourse() {
               required
               placeholder="رابط YouTube، PDF، أو صورة"
               className="form-input"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                fontSize: '1rem'
+              }}
             />
             <small style={{
               fontSize: '0.875rem',
@@ -425,26 +648,65 @@ function CreateCourse() {
               display: 'block'
             }}>أدخل رابط YouTube، PDF، أو صورة لمعاينة الدورة (سيظهر في صفحة تفاصيل الدورة)</small>
           </div>
-        </div>
 
-        <div className="form-section" style={{
-          marginBottom: '3rem',
-          paddingBottom: '2rem',
-          borderBottom: '2px solid #e5e7eb'
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            marginTop: '2rem'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveSection('basic')}
+              className="btn-secondary"
+              style={{ padding: '0.75rem 2rem' }}
+            >
+              ← السابق
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('content')}
+              className="btn-gradient"
+              style={{ padding: '0.75rem 2rem' }}
+            >
+              التالي: الوحدات والدروس →
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Content Section */}
+        {activeSection === 'content' && (
+        <div className="form-section-card" style={{
+          background: 'white',
+          borderRadius: '1.5rem',
+          padding: '2.5rem',
+          boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+          marginBottom: '2rem',
+          border: '1px solid #e5e7eb'
         }}>
-          <div className="section-header" style={{
+          <div style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '1.5rem'
+            marginBottom: '2rem',
+            paddingBottom: '1.5rem',
+            borderBottom: '2px solid #f3f4f6'
           }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem'
+            }}>
+              <span style={{ fontSize: '2rem' }}>📚</span>
             <h2 style={{
-              fontSize: '1.5rem',
+                fontSize: '1.75rem',
               fontWeight: 700,
-              color: '#1f2937'
+                color: '#1f2937',
+                margin: 0
             }}>وحدات و دروس الدورة</h2>
-            <button type="button" onClick={addModule} className="btn-secondary">
-              إضافة وحدة
+            </div>
+            <button type="button" onClick={addModule} className="btn-secondary" style={{ padding: '0.75rem 1.5rem' }}>
+              + إضافة وحدة
             </button>
           </div>
 
@@ -457,7 +719,7 @@ function CreateCourse() {
                   onChange={(e) =>
                     updateModule(module.id, 'title', e.target.value)
                   }
-                  placeholder={`Module ${moduleIndex + 1} Title`}
+                  placeholder={`عنوان الوحدة ${moduleIndex + 1}`}
                   className="module-title-input"
                 />
                 <button
@@ -485,7 +747,7 @@ function CreateCourse() {
                             e.target.value
                           )
                         }
-                        placeholder="Lesson title"
+                        placeholder="عنوان الدرس"
                       />
                       <input
                         type="url"
@@ -498,30 +760,75 @@ function CreateCourse() {
                             e.target.value
                           )
                         }
-                        placeholder="YouTube URL, PDF link, or image URL"
+                        placeholder="رابط YouTube، PDF، أو صورة"
                       />
-                      <small>Enter a link (YouTube, PDF, or image)</small>
+                      <small>أدخل رابط (YouTube، PDF، أو صورة)</small>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           ))}
-        </div>
 
-        <div className="form-actions">
+          {modules.length === 0 && (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem 2rem',
+              background: '#f9fafb',
+              borderRadius: '1rem',
+              border: '2px dashed #e5e7eb'
+            }}>
+              <p style={{
+                color: '#6b7280',
+                fontSize: '1rem',
+                margin: 0
+              }}>لا توجد وحدات بعد. اضغط على "إضافة وحدة" لبدء إضافة المحتوى</p>
+            </div>
+          )}
+
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            marginTop: '2rem'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveSection('media')}
+              className="btn-secondary"
+              style={{ padding: '0.75rem 2rem' }}
+            >
+              ← السابق
+            </button>
+          </div>
+        </div>
+        )}
+
+        {/* Form Actions - Always visible */}
+        {activeSection === 'content' && (
+        <div className="form-actions" style={{
+          display: 'flex',
+          gap: '1rem',
+          justifyContent: 'flex-end',
+          padding: '2rem',
+          background: 'white',
+          borderRadius: '1.5rem',
+          boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+          border: '1px solid #e5e7eb'
+        }}>
           <button 
             type="button" 
             onClick={() => navigate('/')} 
             className="btn-secondary"
             disabled={submitting}
+            style={{ padding: '0.75rem 2rem' }}
           >
-            Cancel
+            إلغاء
           </button>
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Creating Course...' : 'Submit for Approval'}
+          <button type="submit" className="btn-gradient" disabled={submitting} style={{ padding: '0.75rem 2rem' }}>
+            {submitting ? 'جاري الإنشاء...' : 'إنشاء الدورة'}
           </button>
         </div>
+        )}
       </form>
     </div>
   )

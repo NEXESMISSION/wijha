@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAlert } from '../context/AlertContext'
 import { getStudentEnrollments, getProfile, updateProfile } from '../lib/api'
 import '../styles/design-system.css'
 import './Dashboard.css'
@@ -8,6 +9,7 @@ import './Dashboard.css'
 function StudentDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { showSuccess, showError } = useAlert()
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -48,7 +50,7 @@ function StudentDashboard() {
         name: profileForm.name.trim(),
         profile_image_url: profileForm.profile_image_url.trim() || null
       })
-      alert('تم تحديث الملف الشخصي بنجاح!')
+      showSuccess('تم تحديث الملف الشخصي بنجاح!')
       setShowEditModal(false)
       await loadProfile()
       // Update auth context if needed
@@ -56,7 +58,7 @@ function StudentDashboard() {
         // The auth context will update on next login/refresh
       }
     } catch (err) {
-      alert('خطأ في حفظ الملف الشخصي: ' + err.message)
+      showError('خطأ في حفظ الملف الشخصي: ' + err.message)
       console.error('Error saving profile:', err)
     } finally {
       setSavingProfile(false)

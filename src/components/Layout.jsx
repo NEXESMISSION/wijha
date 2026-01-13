@@ -11,6 +11,7 @@ function Layout({ children }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileImage, setProfileImage] = useState(null)
+  const [profileSlug, setProfileSlug] = useState(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,7 +22,7 @@ function Layout({ children }) {
   }, [])
 
   useEffect(() => {
-    // Load user profile image
+    // Load user profile image and slug
     if (user?.id) {
       loadProfileImage()
     }
@@ -30,9 +31,16 @@ function Layout({ children }) {
   const loadProfileImage = async () => {
     try {
       const profile = await getProfile(user.id)
-      setProfileImage(profile?.profile_image_url || user?.user_metadata?.avatar_url || null)
+      const imageUrl = profile?.profile_image_url || user?.user_metadata?.avatar_url
+      // Only set if we have a valid URL (not empty string)
+      setProfileImage(imageUrl && imageUrl.trim() ? imageUrl : null)
+      // For creators, also load the profile slug
+      if (user?.role === 'creator' && profile?.profile_slug) {
+        setProfileSlug(profile.profile_slug)
+      }
     } catch (err) {
       console.error('Error loading profile image:', err)
+      setProfileImage(null)
     }
   }
 
@@ -57,7 +65,12 @@ function Layout({ children }) {
     if (user?.role === 'student') {
       navigate('/student/dashboard')
     } else if (user?.role === 'creator') {
-      navigate('/creator/dashboard')
+      // Navigate to creator profile page if slug exists, otherwise to dashboard
+      if (profileSlug) {
+        navigate(`/creator/${profileSlug}`)
+      } else {
+        navigate('/creator/dashboard')
+      }
     } else if (user?.role === 'admin') {
       navigate('/admin/dashboard')
     }
@@ -104,7 +117,7 @@ function Layout({ children }) {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.5rem',
+                      justifyContent: 'center',
                       background: 'transparent',
                       border: '2px solid #e5e7eb',
                       borderRadius: '50%',
@@ -113,7 +126,8 @@ function Layout({ children }) {
                       padding: 0,
                       cursor: 'pointer',
                       overflow: 'hidden',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      flexShrink: 0
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = '#7C34D9'
@@ -123,19 +137,26 @@ function Layout({ children }) {
                       e.currentTarget.style.borderColor = '#e5e7eb'
                       e.currentTarget.style.transform = 'scale(1)'
                     }}
-                    title="الملف الشخصي"
+                    title={user?.role === 'creator' ? 'عرض ملفي الشخصي' : user?.role === 'student' ? 'عرض ملفي الشخصي' : 'الملف الشخصي'}
                   >
                     <img
-                      src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=7C34D9&color=fff&size=40`}
+                      src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.email || 'User')}&background=7C34D9&color=fff&size=40`}
                       alt={user?.name || 'User'}
                       style={{
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        borderRadius: '50%'
+                        borderRadius: '50%',
+                        display: 'block',
+                        minWidth: '40px',
+                        minHeight: '40px'
                       }}
                       onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=7C34D9&color=fff&size=40`
+                        // Fallback to generated avatar if image fails
+                        const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.email || 'User')}&background=7C34D9&color=fff&size=40`
+                        if (e.target.src !== fallbackUrl) {
+                          e.target.src = fallbackUrl
+                        }
                       }}
                     />
                   </button>
@@ -224,23 +245,25 @@ function Layout({ children }) {
                       cursor: 'pointer'
                     }}
                   >
-                    <div style={{ 
-                      width: '40px', 
-                      height: '40px', 
-                      borderRadius: '50%', 
-                      background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1.25rem',
-                      flexShrink: 0
-                    }}>
-                      👤
-                    </div>
+                    <img
+                      src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=7C34D9&color=fff&size=40`}
+                      alt={user?.name || 'User'}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        border: '2px solid #e5e7eb',
+                        flexShrink: 0
+                      }}
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=7C34D9&color=fff&size=40`
+                      }}
+                    />
                     <div style={{ flex: 1, textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, color: '#1f2937' }}>الملف الشخصي</div>
+                      <div style={{ fontWeight: 700, color: '#1f2937' }}>عرض ملفي الشخصي</div>
                       <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                        {user?.role === 'student' ? 'عرض ملفك الشخصي' : user?.role === 'creator' ? 'إدارة ملفك الشخصي' : 'لوحة التحكم'}
+                        {user?.role === 'student' ? 'عرض ملفك الشخصي' : user?.role === 'creator' ? 'عرض ملفك الشخصي' : 'لوحة التحكم'}
                       </div>
                     </div>
                   </button>

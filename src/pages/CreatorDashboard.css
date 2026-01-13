@@ -263,6 +263,16 @@
     margin-top: 1rem !important;
   }
   
+  /* Pulse animation for pending payouts */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+  
   /* Courses Grid - Mobile */
   div[style*="display: 'grid'"][style*="gridTemplateColumns"] {
     grid-template-columns: 1fr !important;

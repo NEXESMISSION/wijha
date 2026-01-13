@@ -26,7 +26,6 @@ function Login() {
     }
     
     try {
-      console.log('Attempting login...')
       // Add timeout to prevent hanging
       const loginPromise = login(email, password)
       const timeoutPromise = new Promise((_, reject) => 
