@@ -170,6 +170,11 @@ function CourseDetail() {
   }
 
   const checkEnrollment = async () => {
+    if (!user || user.role !== 'student') {
+      setEnrollment(null)
+      return
+    }
+    
     try {
       const enrollments = await getStudentEnrollments(user.id)
       const courseEnrollment = enrollments.find(e => e.course_id === id)
@@ -251,6 +256,16 @@ function CourseDetail() {
   }
 
   const handleEnrollSubmit = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    if (user.role !== 'student') {
+      showWarning('يجب أن تكون طالباً للتسجيل في الدورة')
+      return
+    }
+
     if (!paymentFile) {
       showWarning('يرجى رفع إثبات الدفع')
       return
@@ -1168,8 +1183,12 @@ function CourseDetail() {
                         lessonNumber={lessonNumber}
                         onLessonClick={(lessonId) => handleLessonClick(lessonId)}
                         onEnrollClick={() => {
+                          if (!user) {
+                            navigate('/login')
+                          } else {
                           setShowEnrollModal(true)
                           setEnrollStep(1)
+                          }
                         }}
                       />
                       )

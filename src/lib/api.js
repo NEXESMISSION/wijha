@@ -1,5 +1,48 @@
 import { supabase } from './supabase'
 
+// Stats API
+export const getProfileStats = async () => {
+  try {
+    // Try using the database function first (more secure)
+    const { data: functionData, error: functionError } = await supabase
+      .rpc('get_profile_stats')
+    
+    // Handle both array and single object responses
+    if (!functionError && functionData) {
+      const stats = Array.isArray(functionData) ? functionData[0] : functionData
+      if (stats && (stats.student_count !== undefined || stats.creator_count !== undefined)) {
+        return {
+          studentCount: Number(stats.student_count) || 0,
+          creatorCount: Number(stats.creator_count) || 0
+        }
+      }
+    }
+    
+    // Fallback to direct query (requires public policy)
+    const [studentsResult, creatorsResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'student'),
+      supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'creator')
+    ])
+    
+    return {
+      studentCount: Number(studentsResult.count) || 0,
+      creatorCount: Number(creatorsResult.count) || 0
+    }
+  } catch (err) {
+    console.error('Error getting profile stats:', err)
+    return {
+      studentCount: 0,
+      creatorCount: 0
+    }
+  }
+}
+
 // Profiles API
 export const getProfile = async (userId) => {
   try {

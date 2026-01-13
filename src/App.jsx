@@ -97,29 +97,23 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
-      {/* Public Course Routes (accessible to all authenticated users) */}
+      {/* Public Course Routes (accessible to everyone) */}
       <Route path="/courses" element={
-        <ProtectedRoute>
-          <Layout>
-            <CourseBrowse />
-          </Layout>
-        </ProtectedRoute>
+        <Layout>
+          <CourseBrowse />
+        </Layout>
       } />
       
       <Route path="/courses/:id" element={
-        <ProtectedRoute>
-          <Layout>
-            <CourseDetail />
-          </Layout>
-        </ProtectedRoute>
+        <Layout>
+          <CourseDetail />
+        </Layout>
       } />
       
       <Route path="/creator/:slug" element={
-        <ProtectedRoute>
-          <Layout>
-            <CreatorProfile />
-          </Layout>
-        </ProtectedRoute>
+        <Layout>
+          <CreatorProfile />
+        </Layout>
       } />
       
       {/* Legacy routes for backward compatibility */}

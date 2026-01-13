@@ -49,7 +49,7 @@ function AdminDashboard() {
     if (user?.id) {
       // Only show loading if we don't have data yet
       if (courses.length === 0 && enrollments.length === 0 && payoutRequests.length === 0) {
-        loadAllData()
+      loadAllData()
       }
       if (activeTab === 'settings') {
         loadSettings()
@@ -998,7 +998,7 @@ function AdminDashboard() {
                           color: '#1f2937',
                           marginBottom: '0.5rem'
                         }}>
-                          {request.profiles?.name ? (
+                        {request.profiles?.name ? (
                             <Link 
                               to={`/creator/${creatorSlug}`} 
                               className="creator-link"
@@ -1008,11 +1008,11 @@ function AdminDashboard() {
                               }}
                             >
                               {creatorName}
-                            </Link>
-                          ) : (
+                          </Link>
+                        ) : (
                             <span style={{ color: '#6b7280' }}>{creatorName}</span>
-                          )}
-                        </h3>
+                        )}
+                      </h3>
                         
                         <div style={{
                           display: 'grid',
@@ -1026,8 +1026,8 @@ function AdminDashboard() {
                             <strong style={{ color: '#374151' }}>المبلغ:</strong> 
                             <span style={{ marginRight: '0.5rem', fontWeight: 700, color: '#1f2937' }}>
                               {parseFloat(request.amount).toFixed(2)} د.ت
-                            </span>
-                          </div>
+                    </span>
+                  </div>
                           <div>
                             <strong style={{ color: '#374151' }}>طريقة الدفع:</strong> 
                             <span style={{ marginRight: '0.5rem' }}>
@@ -1109,40 +1109,40 @@ function AdminDashboard() {
                           {getStatusText(request.status)}
                         </span>
                         
-                        {request.status === 'pending' && (
+                    {request.status === 'pending' && (
                           <div className="item-actions" style={{
                             display: 'flex',
                             gap: '0.5rem',
                             marginTop: '0.5rem'
                           }}>
-                            <button
-                              onClick={() => handlePayoutAction(request.id, 'approved')}
-                              className="btn-success"
-                              disabled={processing === request.id}
+                        <button
+                          onClick={() => handlePayoutAction(request.id, 'approved')}
+                          className="btn-success"
+                          disabled={processing === request.id}
                               style={{
                                 padding: '0.5rem 1rem',
                                 fontSize: '0.875rem'
                               }}
-                            >
+                        >
                               {processing === request.id ? 'جاري...' : 'موافقة'}
-                            </button>
-                            <button
-                              onClick={() => handlePayoutAction(request.id, 'rejected')}
-                              className="btn-danger"
-                              disabled={processing === request.id}
+                        </button>
+                        <button
+                          onClick={() => handlePayoutAction(request.id, 'rejected')}
+                          className="btn-danger"
+                          disabled={processing === request.id}
                               style={{
                                 padding: '0.5rem 1rem',
                                 fontSize: '0.875rem'
                               }}
-                            >
+                        >
                               {processing === request.id ? 'جاري...' : 'رفض'}
-                            </button>
+                          </button>
                           </div>
-                        )}
+                      )}
                       </div>
                     </div>
+                    </div>
                   </div>
-                </div>
                 )
               })}
             </div>
@@ -1561,7 +1561,7 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
   }
   
   const statusStyle = getStatusColor(enrollment.status)
-  
+
   return (
     <div style={{
       background: 'white',
@@ -1624,11 +1624,11 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
           </div>
           
           {/* Payment Proof - Compact */}
-          {loadingProof ? (
+        {loadingProof ? (
             <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.5rem' }}>
               جاري تحميل إثبات الدفع...
             </div>
-          ) : paymentProof && (
+        ) : paymentProof && (
             <div style={{
               marginTop: '0.5rem',
               padding: '0.5rem',
@@ -1636,7 +1636,7 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
               borderRadius: '0.5rem',
               fontSize: '0.8125rem'
             }}>
-              {paymentProof.file_url ? (
+            {paymentProof.file_url ? (
                 <details style={{ cursor: 'pointer' }}>
                   <summary style={{ color: '#6b7280', fontWeight: 600 }}>
                     📎 إثبات الدفع (صورة)
@@ -1653,7 +1653,7 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
                     }}
                   />
                 </details>
-              ) : paymentProof.text_proof ? (
+            ) : paymentProof.text_proof ? (
                 <details style={{ cursor: 'pointer' }}>
                   <summary style={{ color: '#6b7280', fontWeight: 600 }}>
                     📝 إثبات الدفع (نص)
@@ -1662,58 +1662,58 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
                     {paymentProof.text_proof}
                   </p>
                 </details>
-              ) : null}
-              {paymentProof.notes && (
+            ) : null}
+            {paymentProof.notes && (
                 <div style={{ marginTop: '0.25rem', color: '#6b7280', fontSize: '0.75rem' }}>
                   💬 {paymentProof.notes}
                 </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
+        )}
         
           {/* Rejection Notice - Compact */}
-          {enrollment.status === 'rejected' && (
+        {enrollment.status === 'rejected' && (
             <details style={{
               marginTop: '0.5rem',
-              background: '#fef2f2',
+            background: '#fef2f2',
               border: '1px solid #fecaca',
               borderRadius: '0.5rem',
               padding: '0.5rem'
             }}>
               <summary style={{
                 cursor: 'pointer',
-                color: '#dc2626',
+                color: '#dc2626', 
                 fontWeight: 600,
                 fontSize: '0.8125rem'
               }}>
                 ❌ سبب الرفض
               </summary>
-              <div style={{
+            <div style={{
                 marginTop: '0.5rem',
                 padding: '0.5rem',
-                background: 'white',
+              background: 'white',
                 borderRadius: '0.25rem',
                 fontSize: '0.8125rem',
-                color: '#991b1b',
+                color: '#991b1b', 
                 whiteSpace: 'pre-wrap'
               }}>
                 {enrollment.rejection_note || 'لم يتم تحديد سبب محدد للرفض.'}
-              </div>
-              {enrollment.is_restricted && enrollment.restriction_reason && (
-                <div style={{
+            </div>
+            {enrollment.is_restricted && enrollment.restriction_reason && (
+              <div style={{
                   marginTop: '0.5rem',
                   padding: '0.5rem',
-                  background: '#fff7ed',
+                background: '#fff7ed',
                   borderRadius: '0.25rem',
                   fontSize: '0.8125rem',
                   color: '#9a3412'
                 }}>
                   <strong>⚠️ محظور:</strong> {enrollment.restriction_reason}
-                </div>
-              )}
+              </div>
+            )}
             </details>
-          )}
-        </div>
+        )}
+      </div>
         
         {/* Right: Actions */}
         <div style={{
@@ -1721,34 +1721,34 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
           gap: '0.5rem',
           flexShrink: 0
         }}>
-          {enrollment.status === 'pending' && (
-            <>
-              <button
-                onClick={() => onAction(enrollment.id, 'approved')}
-                className="btn-success"
-                disabled={processing}
+        {enrollment.status === 'pending' && (
+          <>
+            <button
+              onClick={() => onAction(enrollment.id, 'approved')}
+              className="btn-success"
+              disabled={processing}
                 style={{
                   padding: '0.5rem 1rem',
                   fontSize: '0.875rem',
                   whiteSpace: 'nowrap'
                 }}
-              >
+            >
                 {processing ? '...' : '✅'}
-              </button>
-              <button
-                onClick={() => onAction(enrollment.id, 'rejected')}
-                className="btn-danger"
-                disabled={processing}
+            </button>
+            <button
+              onClick={() => onAction(enrollment.id, 'rejected')}
+              className="btn-danger"
+              disabled={processing}
                 style={{
                   padding: '0.5rem 1rem',
                   fontSize: '0.875rem',
                   whiteSpace: 'nowrap'
                 }}
-              >
+            >
                 {processing ? '...' : '❌'}
-              </button>
-            </>
-          )}
+            </button>
+          </>
+        )}
         </div>
       </div>
     </div>

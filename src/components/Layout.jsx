@@ -81,7 +81,7 @@ function Layout({ children }) {
     <div className="layout">
       <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`}>
         <div className="navbar-container">
-          <Link to={user?.role === 'student' ? '/courses' : user?.role === 'creator' ? '/creator/dashboard' : user?.role === 'admin' ? '/admin/dashboard' : '/'} className="navbar-logo-link">
+          <Link to="/" className="navbar-logo-link">
             <img 
               src="https://i.ibb.co/ccdRN4V4/lg.png" 
               alt="وجهة" 

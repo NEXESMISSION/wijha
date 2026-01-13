@@ -46,7 +46,7 @@ function CreatorDashboard() {
     if (user?.id) {
       // Only show loading if we don't have data yet
       if (courses.length === 0 && earnings.totalEarnings === 0) {
-        loadData()
+      loadData()
       }
       loadProfile() // Always load profile to show profile button
       if (activeTab === 'payouts') {
@@ -197,7 +197,7 @@ function CreatorDashboard() {
       
       // Load per-course earnings
       if (coursesData && coursesData.length > 0) {
-        await loadCourseEarnings(coursesData)
+      await loadCourseEarnings(coursesData)
       }
     } catch (err) {
       setError(err.message)
@@ -1285,8 +1285,8 @@ function CreatorDashboard() {
                   })()}
                 </div>
                 
-                <button 
-                  onClick={() => setShowPayoutModal(true)} 
+          <button 
+            onClick={() => setShowPayoutModal(true)} 
                   style={{
                     background: 'white',
                     color: '#7C34D9',
@@ -1327,8 +1327,8 @@ function CreatorDashboard() {
                   }}
                 >
                   سحب الأرباح
-                </button>
-              </div>
+          </button>
+        </div>
             </div>
 
             {/* Total Courses */}
@@ -1417,8 +1417,8 @@ function CreatorDashboard() {
                 fontWeight: 500
               }}>
                 طالب مسجل
-              </div>
-            </div>
+        </div>
+        </div>
       </div>
 
           {/* Courses List */}

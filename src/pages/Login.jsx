@@ -85,6 +85,24 @@ function Login() {
         borderRadius: '1.5rem',
         boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.15)'
       }}>
+        <Link 
+          to="/" 
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#6b7280',
+            textDecoration: 'none',
+            marginBottom: '1rem',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            transition: 'color 0.3s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = '#F48434'}
+          onMouseLeave={(e) => e.currentTarget.style.color = '#6b7280'}
+        >
+          ← العودة للرئيسية
+        </Link>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img 
             src="https://i.ibb.co/ccdRN4V4/lg.png" 
