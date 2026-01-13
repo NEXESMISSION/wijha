@@ -102,11 +102,16 @@ export function AuthProvider({ children }) {
         if (!validation.isValid) {
           // Session is invalid - logout user
           setIsSessionInvalid(true)
+          
+          // ONLY show logout message if session was REPLACED by another device
+          // Don't show message for other reasons (normal logout, expired, etc.)
           if (validation.reason === 'SESSION_REPLACED') {
             setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
           } else {
-            setLogoutMessage('جلستك لم تعد صالحة. سيتم توجيهك إلى صفحة تسجيل الدخول.')
+            // For other reasons, just logout silently (no message)
+            setLogoutMessage(null)
           }
+          
           // Clear user state first
           setUser(null)
           setProfile(null)
@@ -150,6 +155,8 @@ export function AuthProvider({ children }) {
         // This happens right after login when createSession is called
         if (isCreatingSessionRef.current) {
           // Just set the user, validation will happen after session is created
+          setIsSessionInvalid(false) // Clear invalid flag
+          setLogoutMessage(null) // Clear any logout message
           setUser(session.user)
           const userId = session.user.id
           if (!profileLoadCache.has(userId)) {
@@ -165,15 +172,21 @@ export function AuthProvider({ children }) {
         }
         
         // Validate session before accepting it (prevent auto-login with invalid session)
+        // BUT: Only show logout message if session was REPLACED by another device
         const validation = await validateCurrentSession()
         if (!validation.isValid) {
-          // Session is invalid - don't set user, clear session
+          // Session is invalid
           setIsSessionInvalid(true)
+          
+          // ONLY show logout message if session was REPLACED by another device
+          // Don't show message for other reasons (might be normal logout, expired, etc.)
           if (validation.reason === 'SESSION_REPLACED') {
             setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
           } else {
-            setLogoutMessage('جلستك لم تعد صالحة. سيتم توجيهك إلى صفحة تسجيل الدخول.')
+            // For other reasons, just logout silently (no message)
+            setLogoutMessage(null)
           }
+          
           setUser(null)
           setProfile(null)
           try {
@@ -191,8 +204,9 @@ export function AuthProvider({ children }) {
           return
         }
         
-        // Session is valid - clear invalid flag
+        // Session is valid - clear invalid flag and logout message
         setIsSessionInvalid(false)
+        setLogoutMessage(null)
         setUser(session.user)
         const userId = session.user.id
         // Load profile in background, don't block - but prevent duplicates
