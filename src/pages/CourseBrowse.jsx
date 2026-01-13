@@ -600,24 +600,21 @@ function CourseBrowse() {
           )}
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)', // Exactly 2 columns
-          gap: '0.875rem' // Reduced gap on mobile, larger on desktop
-        }}
-        className="courses-grid-mobile"
+        <div 
+          className="courses-grid"
         >
           {courses.map((course) => (
             <Link 
               key={course.id} 
               to={`/courses/${course.id}`} 
+              className="course-card-link"
               style={{ 
                 textDecoration: 'none',
                 display: 'block',
                 height: '100%'
               }}
             >
-              <div style={{
+              <div className="course-card" style={{
                 background: 'white',
                 borderRadius: '12px',
                 overflow: 'hidden',
@@ -641,10 +638,10 @@ function CourseBrowse() {
               }}
               >
                 {/* Thumbnail Image */}
-                <div style={{
+                <div className="course-image" style={{
                   position: 'relative',
                   width: '100%',
-                  height: '180px',
+                  aspectRatio: '1',
                   overflow: 'hidden',
                   background: '#f3f4f6'
                 }}>
@@ -654,7 +651,8 @@ function CourseBrowse() {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      objectPosition: 'center'
                     }}
                     onError={(e) => {
                       if (e.target.src.includes('placeholder')) {
@@ -665,125 +663,75 @@ function CourseBrowse() {
                       }
                     }}
                   />
-                  
-                  {/* Category Badge */}
-                  {course.categories && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      background: 'white',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#1f2937',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.375rem',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                    }}>
-                      {course.categories.icon && <span>{course.categories.icon}</span>}
-                      <span>{course.categories.name}</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Course Content */}
-                <div style={{ 
-                  padding: '1.5rem',
+                <div className="course-content" style={{ 
+                  padding: '1rem',
                   flex: 1,
                   display: 'flex',
-                  flexDirection: 'column'
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
                 }}>
-                  <h3 style={{
-                    fontSize: '1.125rem',
-                    fontWeight: 700,
-                    color: '#1f2937',
-                    marginBottom: '0.875rem',
-                    lineHeight: '1.6',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    minHeight: '3.6em'
-                  }}>
-                    {course.title}
-                  </h3>
-                  
-                  <p style={{
-                    fontSize: '0.875rem',
-                    color: '#6b7280',
-                    marginBottom: '1rem',
-                    lineHeight: '1.5',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    flex: 1
-                  }}>
-                    {course.description}
-                  </p>
-
-                  {/* Creator Info */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '1rem',
-                    paddingBottom: '1rem',
-                    borderBottom: '1px solid #f3f4f6',
-                    fontSize: '0.875rem'
-                  }}>
-                    {course.profiles?.profile_image_url && (
-                      <img
-                        src={course.profiles.profile_image_url}
-                        alt={course.profiles.name}
-                        style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          objectFit: 'cover',
-                          background: '#e5e7eb'
-                        }}
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                        }}
-                      />
+                  <div>
+                    {/* Category Badge - Small, above title */}
+                    {course.categories && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        padding: '0.25rem 0.5rem',
+                        background: '#f3f4f6',
+                        borderRadius: '0.375rem',
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        color: '#6b7280',
+                        marginBottom: '0.5rem'
+                      }}>
+                        {course.categories.icon && <span>{course.categories.icon}</span>}
+                        <span>{course.categories.name}</span>
+                      </div>
                     )}
-                    <span style={{
-                      fontSize: '0.9375rem',
-                      color: '#6b7280'
+                    
+                    <h3 style={{
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
+                      color: '#1f2937',
+                      marginBottom: '0.5rem',
+                      lineHeight: '1.4',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
                     }}>
-                      {course.profiles?.name || 'غير معروف'}
-                    </span>
+                      {course.title}
+                    </h3>
+                    
+                    {/* Creator Name - Text Only */}
+                    {course.profiles?.name && (
+                      <p style={{
+                        fontSize: '0.8125rem',
+                        color: '#6b7280',
+                        margin: 0,
+                        marginBottom: '0.75rem'
+                      }}>
+                        {course.profiles.name}
+                      </p>
+                    )}
                   </div>
 
                   {/* Price */}
                   <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
                     marginTop: 'auto',
-                    paddingTop: '1.25rem',
-                    borderTop: '1px solid #f3f4f6',
-                    gap: '0.75rem'
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid #f3f4f6'
                   }}>
                     <div style={{
-                      fontSize: '1.375rem',
+                      fontSize: '1.25rem',
                       fontWeight: 700,
                       color: '#7C34D9'
                     }}>
                       {course.price === 0 ? 'مجاني' : `${parseFloat(course.price).toFixed(2)} د.ت`}
-                    </div>
-                    <div style={{
-                      fontSize: '1rem',
-                      color: '#6b7280',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      عرض الدورة →
                     </div>
                   </div>
                 </div>

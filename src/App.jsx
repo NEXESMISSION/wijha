@@ -13,6 +13,7 @@ import CreateCourse from './pages/CreateCourse'
 import EditCourse from './pages/EditCourse'
 import LandingPage from './pages/LandingPage'
 import Layout from './components/Layout'
+import ScrollToTop from './components/ScrollToTop'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
@@ -50,7 +51,9 @@ function AppRoutes() {
   }
   
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={!user ? <Login /> : <Navigate to={getDefaultRoute()} replace />} />
@@ -130,6 +133,7 @@ function AppRoutes() {
       } />
       
     </Routes>
+    </>
   )
 }
 

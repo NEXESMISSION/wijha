@@ -693,11 +693,7 @@ function CreatorProfile() {
                 📚 دورات {creator.name}
               </span>
             </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '1.5rem'
-            }}>
+            <div className="courses-grid">
               {filteredCourses.map((course) => (
                 <Link 
                   key={course.id} 
@@ -708,7 +704,7 @@ function CreatorProfile() {
                     height: '100%'
                   }}
                 >
-                  <div style={{
+                  <div className="course-card" style={{
                     background: 'white',
                     borderRadius: '1rem',
                     overflow: 'hidden',
@@ -730,9 +726,10 @@ function CreatorProfile() {
                     e.currentTarget.style.borderColor = '#e5e7eb'
                   }}
                   >
-                    <div style={{
+                    <div className="course-image" style={{
                       position: 'relative',
-                      height: '180px',
+                      width: '100%',
+                      aspectRatio: '1',
                       overflow: 'hidden',
                       background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)'
                     }}>
@@ -743,6 +740,7 @@ function CreatorProfile() {
                           width: '100%',
                           height: '100%',
                           objectFit: 'cover',
+                          objectPosition: 'center',
                           transition: 'transform 0.3s ease'
                         }}
                         onError={(e) => {
@@ -757,48 +755,60 @@ function CreatorProfile() {
                         }}
                       />
                     </div>
-                    <div style={{ 
-                      padding: '1.5rem',
+                    <div className="course-content" style={{ 
+                      padding: '1rem',
                       flex: 1,
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between'
                     }}>
-                      <h3 style={{
-                        fontSize: '1.125rem',
-                        fontWeight: 700,
-                        color: '#1f2937',
-                        marginBottom: '1rem',
-                        lineHeight: 1.4,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {course.title}
-                      </h3>
+                      <div>
+                        {/* Category Badge - Small, above title */}
+                        {course.categories && (
+                          <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            padding: '0.25rem 0.5rem',
+                            background: '#f3f4f6',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.6875rem',
+                            fontWeight: 600,
+                            color: '#6b7280',
+                            marginBottom: '0.5rem'
+                          }}>
+                            {course.categories.icon && <span>{course.categories.icon}</span>}
+                            <span>{course.categories.name}</span>
+                          </div>
+                        )}
+                        
+                        <h3 style={{
+                          fontSize: '0.8125rem',
+                          fontWeight: 700,
+                          color: '#1f2937',
+                          marginBottom: '0.5rem',
+                          lineHeight: 1.4,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {course.title}
+                        </h3>
+                      </div>
                       <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: '1rem',
+                        marginTop: 'auto',
+                        paddingTop: '0.75rem',
                         borderTop: '1px solid #e5e7eb'
                       }}>
                         <span style={{
-                          fontSize: '1.5rem',
-                          fontWeight: 900,
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
                           background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent'
                         }}>
                           {parseFloat(course.price).toFixed(2)} د.ت
-                        </span>
-                        <span style={{
-                          fontSize: '0.875rem',
-                          color: '#6b7280',
-                          fontWeight: 500
-                        }}>
-                          عرض الدورة →
                         </span>
                       </div>
                     </div>

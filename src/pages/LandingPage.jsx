@@ -223,11 +223,12 @@ function LandingPage() {
               <>
                 {user?.role === 'student' && (
                   <>
-                    <Link to="/courses" className="navbar-link">الدورات</Link>
+                    <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                   </>
                 )}
                 {user?.role === 'creator' && (
                   <>
+                    <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                     <Link to="/creator/dashboard" className="navbar-link">لوحة التحكم</Link>
                     <Link to="/creator/create-course" className="navbar-link">إنشاء دورة</Link>
                   </>
@@ -304,6 +305,7 @@ function LandingPage() {
               </>
             ) : (
               <>
+                <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                 <a href="#about" className="navbar-link" onClick={(e) => { e.preventDefault(); scrollToSection('about'); }}>من نحن</a>
                 <a href="#courses" className="navbar-link" onClick={(e) => { e.preventDefault(); scrollToSection('courses'); }}>الدورات</a>
                 <a href="#testimonials" className="navbar-link" onClick={(e) => { e.preventDefault(); scrollToSection('testimonials'); }}>آراء الطلاب</a>
@@ -415,12 +417,15 @@ function LandingPage() {
                   {user?.role === 'student' && (
                     <>
                       <Link to="/courses" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>
-                        الدورات
+                        جميع الدورات
                       </Link>
                     </>
                   )}
                   {user?.role === 'creator' && (
                     <>
+                      <Link to="/courses" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>
+                        جميع الدورات
+                      </Link>
                       <Link to="/creator/dashboard" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>
                         لوحة التحكم
                       </Link>
@@ -448,6 +453,9 @@ function LandingPage() {
                 </>
               ) : (
                 <>
+                  <Link to="/courses" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>
+                    جميع الدورات
+                  </Link>
                   <a href="#about" className="mobile-menu-link" onClick={(e) => { e.preventDefault(); scrollToSection('about'); setMobileMenuOpen(false); }}>من نحن</a>
                   <a href="#courses" className="mobile-menu-link" onClick={(e) => { e.preventDefault(); scrollToSection('courses'); setMobileMenuOpen(false); }}>الدورات</a>
                   <a href="#testimonials" className="mobile-menu-link" onClick={(e) => { e.preventDefault(); scrollToSection('testimonials'); setMobileMenuOpen(false); }}>آراء الطلاب</a>
@@ -495,12 +503,25 @@ function LandingPage() {
             </p>
             
             <div className="hero-actions">
+              {!user ? (
+                <a 
+                  href="#about" 
+                  className="hero-btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    scrollToSection('about')
+                  }}
+                >
+                  اكتشف المزيد عنا
+                </a>
+              ) : (
               <Link 
-                to={!user ? '#about' : user.role === 'student' ? '/courses' : user.role === 'creator' ? '/creator/dashboard' : '/admin/dashboard'} 
+                  to={user.role === 'student' ? '/courses' : user.role === 'creator' ? '/creator/dashboard' : '/admin/dashboard'} 
                 className="hero-btn-primary"
               >
-                {!user ? 'اكتشف المزيد عنا' : 'ابدأ التعلم الآن'}
+                  ابدأ التعلم الآن
               </Link>
+              )}
             </div>
 
             <div className="hero-stats">
@@ -684,6 +705,25 @@ function LandingPage() {
               })}
             </div>
           )}
+          
+          {/* See All Courses Button */}
+          <div style={{ textAlign: 'center', marginTop: '3rem' }}>
+            <Link 
+              to="/courses" 
+              className="btn-gradient"
+              style={{
+                display: 'inline-block',
+                padding: '1rem 2.5rem',
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                borderRadius: '0.75rem',
+                transition: 'all 0.3s'
+              }}
+            >
+              عرض جميع الدورات
+            </Link>
+          </div>
         </div>
       </section>
 

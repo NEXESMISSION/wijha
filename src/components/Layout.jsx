@@ -93,6 +93,7 @@ function Layout({ children }) {
           <div className="navbar-menu desktop-menu">
             {user ? (
               <>
+                <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                 {user?.role === 'student' && (
                   <>
                     <Link to="/courses" className="navbar-link">الدورات</Link>
@@ -107,7 +108,6 @@ function Layout({ children }) {
                 {user?.role === 'admin' && (
                   <>
                     <Link to="/admin/dashboard" className="navbar-link">لوحة التحكم</Link>
-                    <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                   </>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: '1rem' }}>
@@ -171,6 +171,7 @@ function Layout({ children }) {
               </>
             ) : (
               <>
+                <Link to="/courses" className="navbar-link">جميع الدورات</Link>
                 <Link to="/login" className="navbar-link">تسجيل الدخول</Link>
                 <Link to="/signup" className="btn-primary">اشترك الآن</Link>
               </>
@@ -223,6 +224,9 @@ function Layout({ children }) {
             <div className="mobile-menu-links">
               {user ? (
                 <>
+                  <Link to="/courses" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>
+                    جميع الدورات
+                  </Link>
                   {/* Profile Button */}
                   <button
                     onClick={handleProfileClick}
@@ -261,9 +265,11 @@ function Layout({ children }) {
                       }}
                     />
                     <div style={{ flex: 1, textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, color: '#1f2937' }}>عرض ملفي الشخصي</div>
+                      <div style={{ fontWeight: 700, color: '#1f2937' }}>
+                        {user?.name || 'الملف الشخصي'}
+                      </div>
                       <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                        {user?.role === 'student' ? 'عرض ملفك الشخصي' : user?.role === 'creator' ? 'عرض ملفك الشخصي' : 'لوحة التحكم'}
+                        {user?.role === 'student' ? 'طالب' : user?.role === 'creator' ? 'منشئ محتوى' : 'مدير'}
                       </div>
                     </div>
                   </button>

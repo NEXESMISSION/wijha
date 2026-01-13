@@ -192,9 +192,33 @@
 
 .courses-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns default */
+  gap: 1rem;
   margin-top: 1.5rem;
+}
+
+/* Tablets and medium screens - 3 columns */
+@media (min-width: 768px) {
+  .courses-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* Large screens - maintain 3 columns */
+@media (min-width: 1024px) {
+  .courses-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* Very large screens - maintain 3 columns with slightly more spacing */
+@media (min-width: 1400px) {
+  .courses-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
 }
 
 .course-card {
@@ -205,8 +229,7 @@
   text-decoration: none;
   color: inherit;
   transition: all 0.3s;
-  min-width: 280px;
-  max-width: 280px;
+  width: 100%;
 }
 
 .course-card:hover {
@@ -216,7 +239,7 @@
 
 .course-card .course-image {
   width: 100%;
-  height: 160px;
+  aspect-ratio: 1;
   overflow: hidden;
 }
 
@@ -286,38 +309,66 @@
   }
 }
 
-/* Mobile responsive - match landing page sizes */
-@media (max-width: 900px) {
+/* Mobile responsive - horizontal layout with thumbnail on side */
+@media (max-width: 768px) {
   .courses-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 1rem;
-    justify-items: center;
-  }
-
-  .course-card {
-    min-width: 160px;
-    max-width: 160px;
-  }
-
-  .course-card .course-image {
-    height: 100px;
-  }
-}
-
-@media (max-width: 500px) {
-  .courses-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: 1fr !important;
     gap: 0.75rem;
-    justify-items: center;
+    justify-items: stretch;
   }
 
   .course-card {
-    min-width: 140px;
-    max-width: 140px;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    flex-direction: row !important;
+    height: auto;
+    min-height: 100px;
   }
 
   .course-card .course-image {
-    height: 80px;
+    width: 80px !important;
+    min-width: 80px;
+    height: 80px !important;
+    aspect-ratio: 1 !important;
+    flex-shrink: 0;
+  }
+
+  .course-card .course-content {
+    flex: 1;
+    padding: 0.75rem !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .course-card .course-content h3 {
+    font-size: 0.8125rem !important;
+    margin-bottom: 0.375rem !important;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .course-card .course-content > div:last-of-type {
+    padding-top: 0.5rem !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+
+  .course-card .course-price,
+  .course-card .course-content span[style*="fontSize: '1.25rem'"],
+  .course-card .course-content span[style*="fontSize: '1.5rem'"] {
+    font-size: 0.9375rem !important;
+  }
+
+  .course-card .course-content > div > div[style*="background: '#f3f4f6'"] {
+    font-size: 0.625rem !important;
+    padding: 0.2rem 0.4rem !important;
+    margin-bottom: 0.375rem !important;
   }
 }
 
@@ -325,6 +376,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 
 .course-card .course-content {
@@ -333,7 +385,7 @@
 
 /* Match landing page course card styling */
 .course-card .course-content h3 {
-  font-size: 1rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: #1f2937;
   margin: 0 0 0.5rem 0;
@@ -384,7 +436,7 @@
 .course-card h3 {
   margin: 0 0 0.5rem 0;
   color: #333;
-  font-size: 1rem;
+  font-size: 0.8125rem;
 }
 
 .course-card .course-price {
