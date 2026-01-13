@@ -18,31 +18,42 @@ export function AuthProvider({ children }) {
     const profileLoadCache = new Set() // Track which profiles are being loaded
     let sessionValidationInterval = null
 
+    console.log('[AuthContext] Initializing auth check...')
+
     // Get initial session and validate it
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('[AuthContext] getSession result:', { hasSession: !!session, userId: session?.user?.id })
+      
       if (session && isMounted) {
         const userId = session.user.id
+        console.log('[AuthContext] Session found, userId:', userId)
         
         // First, try to create/update session in database
         // This ensures the session exists in DB before we validate
         if (session.access_token) {
+          console.log('[AuthContext] Creating/updating session in database...')
           isCreatingSessionRef.current = true
           try {
-            await createSession(userId, session.access_token)
+            const sessionResult = await createSession(userId, session.access_token)
+            console.log('[AuthContext] Session created/updated:', sessionResult)
             // Wait a bit for DB to commit
             await new Promise(resolve => setTimeout(resolve, 500))
           } catch (err) {
-            console.warn('Failed to create session on initial load:', err)
+            console.error('[AuthContext] Failed to create session on initial load:', err)
             // Continue anyway - might be a network issue
           } finally {
             isCreatingSessionRef.current = false
+            console.log('[AuthContext] Session creation flag cleared')
           }
         }
         
         // Now validate the session
+        console.log('[AuthContext] Validating session...')
         const validation = await validateCurrentSession()
+        console.log('[AuthContext] Validation result:', validation)
         
         if (!validation.isValid) {
+          console.warn('[AuthContext] Session invalid:', validation.reason)
           // Session is invalid - logout user
           setIsSessionInvalid(true)
           if (validation.reason === 'SESSION_REPLACED') {
@@ -55,12 +66,13 @@ export function AuthProvider({ children }) {
           setUser(null)
           setProfile(null)
           setLoading(false)
+          console.log('[AuthContext] Loading cleared (invalid session)')
           // Sign out - handle errors gracefully (session might already be invalid)
           try {
             await supabase.auth.signOut({ scope: 'local' })
           } catch (error) {
             // If signOut fails (403), session is already invalid - that's fine
-            console.warn('Sign out warning (session may already be invalid):', error.message)
+            console.warn('[AuthContext] Sign out warning (session may already be invalid):', error.message)
           }
           // Also manually clear Supabase session storage to prevent auto-login on refresh
           try {
@@ -77,6 +89,7 @@ export function AuthProvider({ children }) {
         }
 
         // Session is valid - clear invalid flag and proceed
+        console.log('[AuthContext] Session valid, setting user and loading profile...')
         setIsSessionInvalid(false)
         setLogoutMessage(null)
         setUser(session.user)
@@ -85,18 +98,21 @@ export function AuthProvider({ children }) {
           profileLoadCache.add(userId)
           loadProfile(userId).finally(() => {
             profileLoadCache.delete(userId)
+            console.log('[AuthContext] Profile load completed, clearing loading state')
             if (isMounted) {
               setLoading(false)
             }
           })
         } else {
-          // Profile already loading, just set loading to false
+          console.log('[AuthContext] Profile already loading, skipping')
           setLoading(false)
         }
       } else if (isMounted) {
+        console.log('[AuthContext] No session found, clearing loading')
         setLoading(false)
       }
-    }).catch(() => {
+    }).catch((error) => {
+      console.error('[AuthContext] Error in getSession:', error)
       if (isMounted) setLoading(false)
     })
 
@@ -163,12 +179,17 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return
+      console.log('[AuthContext] onAuthStateChange:', { event, hasSession: !!session, userId: session?.user?.id })
+      if (!isMounted) {
+        console.log('[AuthContext] Component unmounted, ignoring auth state change')
+        return
+      }
       
       if (session) {
         // Skip validation if we're currently creating a session (avoid race condition)
         // This happens right after login when createSession is called
         if (isCreatingSessionRef.current) {
+          console.log('[AuthContext] Session being created, skipping validation')
           // Just set the user, validation will happen after session is created
           setIsSessionInvalid(false) // Clear invalid flag
           setLogoutMessage(null) // Clear any logout message
@@ -177,34 +198,44 @@ export function AuthProvider({ children }) {
           if (!profileLoadCache.has(userId)) {
             profileLoadCache.add(userId)
             loadProfile(userId).catch(err => {
-              console.warn('Auth state change profile load failed:', err)
+              console.error('[AuthContext] Auth state change profile load failed:', err)
             }).finally(() => {
               profileLoadCache.delete(userId)
+              console.log('[AuthContext] Profile load completed in auth state change')
+              if (isMounted) setLoading(false)
             })
+          } else {
+            console.log('[AuthContext] Profile already loading, clearing loading state')
+            setLoading(false)
           }
-          setLoading(false)
           return
         }
         
         // For auth state changes (like after login), ensure session exists in DB first
         const userId = session.user.id
         if (session.access_token) {
+          console.log('[AuthContext] Ensuring session exists in DB...')
           // Try to create/update session if it doesn't exist
           // This handles the case where user just logged in
           try {
             await createSession(userId, session.access_token)
+            console.log('[AuthContext] Session created/updated in auth state change')
             // Small delay to let DB commit
             await new Promise(resolve => setTimeout(resolve, 300))
           } catch (err) {
             // If session creation fails, continue with validation anyway
-            console.warn('Failed to create session in auth state change:', err)
+            console.warn('[AuthContext] Failed to create session in auth state change:', err)
           }
         }
         
         // Validate session before accepting it (prevent auto-login with invalid session)
         // BUT: Only show logout message if session was REPLACED by another device
+        console.log('[AuthContext] Validating session in auth state change...')
         const validation = await validateCurrentSession()
+        console.log('[AuthContext] Validation result in auth state change:', validation)
+        
         if (!validation.isValid) {
+          console.warn('[AuthContext] Session invalid in auth state change:', validation.reason)
           // Session is invalid
           setIsSessionInvalid(true)
           
@@ -228,13 +259,15 @@ export function AuthProvider({ children }) {
               }
             })
           } catch (error) {
-            // Ignore errors
+            console.error('[AuthContext] Error signing out:', error)
           }
           setLoading(false)
+          console.log('[AuthContext] Loading cleared (invalid session in auth state change)')
           return
         }
         
         // Session is valid - clear invalid flag and logout message
+        console.log('[AuthContext] Session valid in auth state change, setting user')
         setIsSessionInvalid(false)
         setLogoutMessage(null)
         setUser(session.user)
@@ -242,17 +275,23 @@ export function AuthProvider({ children }) {
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
           loadProfile(userId).catch(err => {
-            console.warn('Auth state change profile load failed:', err)
+            console.error('[AuthContext] Auth state change profile load failed:', err)
           }).finally(() => {
             profileLoadCache.delete(userId)
+            console.log('[AuthContext] Profile load completed in auth state change (valid session)')
+            if (isMounted) setLoading(false)
           })
+        } else {
+          console.log('[AuthContext] Profile already loading, clearing loading state')
+          setLoading(false)
         }
       } else {
+        console.log('[AuthContext] No session in auth state change, clearing user')
         setUser(null)
         setProfile(null)
         profileLoadCache.clear()
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     return () => {
@@ -265,6 +304,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const loadProfile = async (userId) => {
+    console.log('[AuthContext] loadProfile called for userId:', userId)
     try {
       // Add timeout to profile loading (reduced to 5 seconds)
       const profilePromise = getProfile(userId)
@@ -272,23 +312,27 @@ export function AuthProvider({ children }) {
         setTimeout(() => reject(new Error('Profile load timeout')), 5000)
       )
       
+      console.log('[AuthContext] Waiting for profile data...')
       const profileData = await Promise.race([profilePromise, timeoutPromise])
+      console.log('[AuthContext] Profile data received:', { hasProfile: !!profileData })
       
       if (profileData) {
         setProfile(profileData)
       } else {
         // Profile doesn't exist yet - might be created by trigger soon
+        console.log('[AuthContext] No profile data, setting to null')
         setProfile(null)
       }
     } catch (error) {
+      console.error('[AuthContext] Error loading profile:', error)
       // Don't fail if profile doesn't exist - it might be created by trigger
       if (error.code === 'PGRST116' || error.message === 'Profile load timeout') {
+        console.warn('[AuthContext] Profile load timeout or not found (expected)')
         // Silent fail for expected errors
       }
       setProfile(null)
-    } finally {
-      setLoading(false)
     }
+    // Note: setLoading(false) is called in the finally block of the caller
   }
 
   const login = async (email, password) => {
