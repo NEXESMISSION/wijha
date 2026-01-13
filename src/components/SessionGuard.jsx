@@ -26,27 +26,18 @@ export default function SessionGuard({ children }) {
       hasShownMessage.current = true
       lastLogoutMessage.current = logoutMessage
       
-      // Show the message
+      // Show the message - NO auto-close, user must click OK
       showWarning(
         logoutMessage,
         'انتهت الجلسة',
         {
-          autoClose: true,
-          autoCloseDelay: 8000,
+          autoClose: false, // Don't auto-close - user must click OK
           onConfirm: () => {
             clearLogoutMessage()
             navigate('/login', { replace: true })
           }
         }
       )
-      
-      // Navigate to login immediately (logout already happened in AuthContext)
-      const timer = setTimeout(() => {
-        clearLogoutMessage()
-        navigate('/login', { replace: true })
-      }, 100)
-      
-      return () => clearTimeout(timer)
     }
     
     // Reset flag when logoutMessage is cleared
@@ -54,7 +45,7 @@ export default function SessionGuard({ children }) {
       hasShownMessage.current = false
       lastLogoutMessage.current = null
     }
-  }, [logoutMessage, clearLogoutMessage, navigate]) // Removed showWarning from dependencies
+  }, [logoutMessage, clearLogoutMessage, navigate, showWarning])
 
   return (
     <>

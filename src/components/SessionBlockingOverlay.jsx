@@ -17,28 +17,44 @@ export default function SessionBlockingOverlay() {
 
   useEffect(() => {
     // Block all interactions when session is invalid
+    // But allow alert interactions (alert has higher z-index)
     if (isSessionInvalid || logoutMessage) {
       // Add class to body to block interactions
       document.body.classList.add('session-blocked')
       
-      // Prevent all keyboard events
+      // Prevent all keyboard events (except on alert)
       const handleKeyDown = (e) => {
+        // Allow if clicking on alert
+        const target = e.target
+        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
+          return // Allow alert interactions
+        }
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()
         return false
       }
 
-      // Prevent all mouse events
+      // Prevent all mouse events (except on alert)
       const handleMouseDown = (e) => {
+        // Allow if clicking on alert
+        const target = e.target
+        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
+          return // Allow alert interactions
+        }
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()
         return false
       }
 
-      // Prevent all touch events
+      // Prevent all touch events (except on alert)
       const handleTouchStart = (e) => {
+        // Allow if touching alert
+        const target = e.target
+        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
+          return // Allow alert interactions
+        }
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()
@@ -66,13 +82,10 @@ export default function SessionBlockingOverlay() {
       document.addEventListener('contextmenu', handleContextMenu, { capture: true, passive: false })
       document.addEventListener('submit', handleSubmit, { capture: true, passive: false })
 
-      // Redirect to login after a short delay
-      const timer = setTimeout(() => {
-        navigate('/login', { replace: true })
-      }, 3000) // Redirect after 3 seconds
+      // Don't auto-redirect - wait for user to click OK on alert
+      // The alert will handle navigation via onConfirm
       
       return () => {
-        clearTimeout(timer)
         document.body.classList.remove('session-blocked')
         document.removeEventListener('keydown', handleKeyDown, { capture: true })
         document.removeEventListener('mousedown', handleMouseDown, { capture: true })

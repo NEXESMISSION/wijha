@@ -62,12 +62,12 @@ function Alert({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
+        background: 'rgba(0, 0, 0, 0.7)',
         backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 10000,
+        zIndex: 100000, // Higher than blocking overlay (99999) to appear on top
         padding: '1rem',
         animation: 'fadeIn 0.2s ease-out'
       }}
