@@ -21,7 +21,25 @@ export function AuthProvider({ children }) {
     // Get initial session and validate it
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session && isMounted) {
-        // Validate session before proceeding
+        const userId = session.user.id
+        
+        // First, try to create/update session in database
+        // This ensures the session exists in DB before we validate
+        if (session.access_token) {
+          isCreatingSessionRef.current = true
+          try {
+            await createSession(userId, session.access_token)
+            // Wait a bit for DB to commit
+            await new Promise(resolve => setTimeout(resolve, 500))
+          } catch (err) {
+            console.warn('Failed to create session on initial load:', err)
+            // Continue anyway - might be a network issue
+          } finally {
+            isCreatingSessionRef.current = false
+          }
+        }
+        
+        // Now validate the session
         const validation = await validateCurrentSession()
         
         if (!validation.isValid) {
@@ -62,15 +80,6 @@ export function AuthProvider({ children }) {
         setIsSessionInvalid(false)
         setLogoutMessage(null)
         setUser(session.user)
-        const userId = session.user.id
-        
-        // Create/update session in database
-        if (session.access_token) {
-          createSession(userId, session.access_token).catch(err => {
-            console.warn('Failed to create session:', err)
-            // Don't block login if session creation fails
-          })
-        }
         
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
@@ -171,6 +180,21 @@ export function AuthProvider({ children }) {
           return
         }
         
+        // For auth state changes (like after login), ensure session exists in DB first
+        const userId = session.user.id
+        if (session.access_token) {
+          // Try to create/update session if it doesn't exist
+          // This handles the case where user just logged in
+          try {
+            await createSession(userId, session.access_token)
+            // Small delay to let DB commit
+            await new Promise(resolve => setTimeout(resolve, 300))
+          } catch (err) {
+            // If session creation fails, continue with validation anyway
+            console.warn('Failed to create session in auth state change:', err)
+          }
+        }
+        
         // Validate session before accepting it (prevent auto-login with invalid session)
         // BUT: Only show logout message if session was REPLACED by another device
         const validation = await validateCurrentSession()
@@ -208,7 +232,6 @@ export function AuthProvider({ children }) {
         setIsSessionInvalid(false)
         setLogoutMessage(null)
         setUser(session.user)
-        const userId = session.user.id
         // Load profile in background, don't block - but prevent duplicates
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
