@@ -117,7 +117,13 @@ function CreatorDashboard() {
   
   const loadProfile = async () => {
     try {
-      const profileData = await getProfile(user.id)
+      // Add timeout to prevent hanging
+      const profilePromise = getProfile(user.id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile load timeout')), 5000)
+      )
+      
+      const profileData = await Promise.race([profilePromise, timeoutPromise])
       setProfile(profileData)
       setProfileForm({
         profile_slug: profileData?.profile_slug || '',
@@ -128,6 +134,7 @@ function CreatorDashboard() {
       })
     } catch (err) {
       console.error('Error loading profile:', err)
+      // Silent fail - don't block UI
     }
   }
   
@@ -168,41 +175,51 @@ function CreatorDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const [coursesData, earningsData] = await Promise.all([
-        getCreatorCourses(user.id),
-        getCreatorEarnings(user.id),
+      
+      // Add timeout to prevent hanging
+      const dataPromise = Promise.all([
+        getCreatorCourses(user.id).catch(() => []),
+        getCreatorEarnings(user.id).catch(() => ({
+          totalEarnings: 0,
+          platformFees: 0,
+          netEarnings: 0,
+          enrollmentsCount: 0,
+        }))
       ])
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Data load timeout')), 5000)
+      )
+      
+      const [coursesData, earningsData] = await Promise.race([dataPromise, timeoutPromise])
+      
+      // Set main data and clear loading immediately
       setCourses(coursesData || [])
-      
-      // Load payout history to calculate correct available earnings
-      const payouts = await getAllCreatorPayoutRequests(user.id).catch(() => [])
-      setPayoutHistory(payouts)
-      
       const baseEarnings = earningsData || {
         totalEarnings: 0,
         platformFees: 0,
         netEarnings: 0,
         enrollmentsCount: 0,
       }
+      setEarnings(baseEarnings)
+      setLoading(false) // Clear loading immediately
       
-      // Calculate available earnings (subtract approved and pending payouts)
-      // Use base net earnings (totalEarnings - platformFees) for calculation
-      const baseNetEarnings = baseEarnings.totalEarnings - baseEarnings.platformFees
-      const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payouts)
-      
-      setEarnings({
-        ...baseEarnings,
-        netEarnings: availableEarnings
-      })
-      
-      // Load per-course earnings
-      if (coursesData && coursesData.length > 0) {
-      await loadCourseEarnings(coursesData)
-      }
+      // Load payout history and course earnings in background (non-blocking)
+      Promise.all([
+        getAllCreatorPayoutRequests(user.id).then(payouts => {
+          setPayoutHistory(payouts || [])
+          // Recalculate available earnings
+          const baseNetEarnings = baseEarnings.totalEarnings - baseEarnings.platformFees
+          const availableEarnings = calculateAvailableEarnings(baseNetEarnings, payouts || [])
+          setEarnings(prev => ({
+            ...prev,
+            netEarnings: availableEarnings
+          }))
+        }).catch(() => {}),
+        coursesData && coursesData.length > 0 ? loadCourseEarnings(coursesData).catch(() => {}) : Promise.resolve()
+      ]).catch(() => {})
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'حدث خطأ أثناء تحميل البيانات')
       console.error('Error loading data:', err)
-    } finally {
       setLoading(false)
     }
   }

@@ -67,24 +67,32 @@ function AdminDashboard() {
       setLoading(true)
       setError(null)
       
-      // Load all data for overview stats
-      const [coursesData, enrollmentsData, payoutsData, reportsData, categoriesData] = await Promise.all([
+      // Add timeout to prevent hanging
+      const dataPromise = Promise.all([
         getAllCoursesForAdmin().catch(() => []),
         getAllEnrollments().catch(() => []),
         getAllPayoutRequests().catch(() => []),
         getAllReports().catch(() => []),
         getAllCategories().catch(() => [])
       ])
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Data load timeout')), 5000)
+      )
       
+      const [coursesData, enrollmentsData, payoutsData, reportsData, categoriesData] = await Promise.race([dataPromise, timeoutPromise])
+      
+      // Set main data and clear loading immediately
       setCourses(coursesData || [])
       setEnrollments(enrollmentsData || [])
+      setLoading(false) // Clear loading immediately
+      
+      // Set extra data (non-blocking)
       setPayoutRequests(payoutsData || [])
       setReports(reportsData || [])
       setCategories(categoriesData || [])
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'حدث خطأ أثناء تحميل البيانات')
       console.error('Error loading data:', err)
-    } finally {
       setLoading(false)
     }
   }

@@ -103,37 +103,38 @@ function CreatorProfile() {
         return [null, [], [], []]
       })
       
+      // Set main data and clear loading immediately
       setCreator(profileData)
-      setStats(statsData)
       setCourses(coursesData)
       setFilteredCourses(coursesData)
+      setLoading(false) // Clear loading immediately - don't wait for extra data
+      
+      // Set stats, comments, and categories (non-blocking)
+      setStats(statsData)
       setComments(commentsData)
       setCategories(categoriesData || [])
       
-      // Check user's rating if logged in (don't block on this)
+      // Check user's rating if logged in (non-blocking)
       if (user?.id && profileData.id) {
-        try {
-          const ratingPromise = supabase
+        Promise.race([
+          supabase
             .from('creator_profile_ratings')
             .select('rating')
             .eq('creator_id', profileData.id)
             .eq('user_id', user.id)
-            .maybeSingle()
-          
-          const ratingTimeout = new Promise((_, reject) => 
+            .maybeSingle(),
+          new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Rating timeout')), 5000)
           )
-          
-          const { data } = await Promise.race([ratingPromise, ratingTimeout]).catch(() => ({ data: null }))
+        ]).then(({ data }) => {
           setUserRating(data?.rating || null)
-        } catch (err) {
+        }).catch(() => {
           // Rating might not exist, that's okay
-        }
+        })
       }
     } catch (err) {
       setError(err.message || 'حدث خطأ أثناء تحميل الملف الشخصي')
       console.error('[CreatorProfile] Error loading profile:', err)
-    } finally {
       setLoading(false)
     }
   }

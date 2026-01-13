@@ -24,14 +24,22 @@ function StudentDashboard() {
 
   useEffect(() => {
     if (user?.id) {
+      // Load enrollments first (main data)
       loadEnrollments()
-      loadProfile()
+      // Load profile in background (non-blocking)
+      loadProfile().catch(() => {})
     }
   }, [user])
 
   const loadProfile = async () => {
     try {
-      const profileData = await getProfile(user.id)
+      // Add timeout to prevent hanging
+      const profilePromise = getProfile(user.id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile load timeout')), 5000)
+      )
+      
+      const profileData = await Promise.race([profilePromise, timeoutPromise])
       setProfile(profileData)
       setProfileForm({
         name: profileData?.name || user?.name || '',
@@ -39,6 +47,7 @@ function StudentDashboard() {
       })
     } catch (err) {
       console.error('Error loading profile:', err)
+      // Silent fail - don't block UI
     }
   }
 
@@ -69,12 +78,21 @@ function StudentDashboard() {
     try {
       setLoading(true)
       setError(null)
-      const data = await getStudentEnrollments(user.id)
-      setEnrollments(data)
+      
+      // Add timeout to prevent hanging
+      const enrollmentPromise = getStudentEnrollments(user.id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Enrollment load timeout')), 5000)
+      )
+      
+      const data = await Promise.race([enrollmentPromise, timeoutPromise])
+      
+      // Set enrollments and clear loading immediately
+      setEnrollments(data || [])
+      setLoading(false) // Clear loading immediately
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'حدث خطأ أثناء تحميل التسجيلات')
       console.error('Error loading enrollments:', err)
-    } finally {
       setLoading(false)
     }
   }

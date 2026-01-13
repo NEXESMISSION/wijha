@@ -41,10 +41,18 @@ function CreateCourse() {
 
   const loadCategories = async () => {
     try {
-      const data = await getAllCategories()
-      setCategories(data)
+      // Add timeout to prevent hanging
+      const categoriesPromise = getAllCategories()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Categories load timeout')), 5000)
+      )
+      
+      const data = await Promise.race([categoriesPromise, timeoutPromise])
+      setCategories(data || [])
     } catch (err) {
       console.error('Error loading categories:', err)
+      // Silent fail - don't block UI
+      setCategories([])
     }
   }
 

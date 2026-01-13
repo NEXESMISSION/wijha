@@ -40,10 +40,18 @@ function EditCourse() {
 
   const loadCategories = async () => {
     try {
-      const data = await getAllCategories()
-      setCategories(data)
+      // Add timeout to prevent hanging
+      const categoriesPromise = getAllCategories()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Categories load timeout')), 5000)
+      )
+      
+      const data = await Promise.race([categoriesPromise, timeoutPromise])
+      setCategories(data || [])
     } catch (err) {
       console.error('Error loading categories:', err)
+      // Silent fail - don't block UI
+      setCategories([])
     }
   }
 
@@ -56,8 +64,17 @@ function EditCourse() {
   const loadCourse = async () => {
     try {
       setLoading(true)
-      const data = await getCourseWithModules(id)
+      setError(null)
       
+      // Add timeout to prevent hanging
+      const coursePromise = getCourseWithModules(id)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Course load timeout')), 5000)
+      )
+      
+      const data = await Promise.race([coursePromise, timeoutPromise])
+      
+      // Set form data and clear loading immediately
       setFormData({
         title: data.title,
         description: data.description,
@@ -87,10 +104,10 @@ function EditCourse() {
       }))
 
       setModules(transformedModules)
+      setLoading(false) // Clear loading immediately
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'حدث خطأ أثناء تحميل الدورة')
       console.error('Error loading course:', err)
-    } finally {
       setLoading(false)
     }
   }
