@@ -14,6 +14,7 @@ import EditCourse from './pages/EditCourse'
 import LandingPage from './pages/LandingPage'
 import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
+import SessionGuard from './components/SessionGuard'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
@@ -147,7 +148,9 @@ function App() {
     >
       <AuthProvider>
         <AlertProvider>
-          <AppRoutes />
+          <SessionGuard>
+            <AppRoutes />
+          </SessionGuard>
         </AlertProvider>
       </AuthProvider>
     </Router>

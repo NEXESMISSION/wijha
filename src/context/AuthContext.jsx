@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { getProfile, createProfileIfMissing } from '../lib/api'
+import { createSession, validateCurrentSession, invalidateSession, checkSessionReplaced } from '../lib/sessionManager'
 
 const AuthContext = createContext(null)
 
@@ -8,16 +9,67 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [logoutMessage, setLogoutMessage] = useState(null)
 
   useEffect(() => {
     let isMounted = true
     const profileLoadCache = new Set() // Track which profiles are being loaded
+    let sessionValidationInterval = null
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check for session replacement message
+    const sessionCheck = checkSessionReplaced()
+    if (sessionCheck.wasReplaced) {
+      setLogoutMessage(sessionCheck.message)
+    }
+
+    // Get initial session and validate it
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session && isMounted) {
+        // Validate session before proceeding
+        const validation = await validateCurrentSession()
+        
+        if (!validation.isValid) {
+          // Session is invalid - logout user
+          if (validation.reason === 'SESSION_REPLACED') {
+            setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+          }
+          // Clear user state first to prevent auto-login
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          // Sign out - handle errors gracefully (session might already be invalid)
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+          } catch (error) {
+            // If signOut fails (403), session is already invalid - that's fine
+            console.warn('Sign out warning (session may already be invalid):', error.message)
+          }
+          // Also manually clear Supabase session storage to prevent auto-login on refresh
+          try {
+            // Clear all Supabase-related keys
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+                localStorage.removeItem(key)
+              }
+            })
+          } catch (clearError) {
+            // Ignore clear errors
+          }
+          return
+        }
+
+        // Session is valid - proceed with normal flow
         setUser(session.user)
         const userId = session.user.id
+        
+        // Create/update session in database
+        if (session.access_token) {
+          createSession(userId, session.access_token).catch(err => {
+            console.warn('Failed to create session:', err)
+            // Don't block login if session creation fails
+          })
+        }
+        
         if (!profileLoadCache.has(userId)) {
           profileLoadCache.add(userId)
           loadProfile(userId).finally(() => {
@@ -31,6 +83,42 @@ export function AuthProvider({ children }) {
       if (isMounted) setLoading(false)
     })
 
+    // Set up periodic session validation (every 30 seconds)
+    sessionValidationInterval = setInterval(async () => {
+      if (!isMounted) return
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const validation = await validateCurrentSession()
+        if (!validation.isValid) {
+          // Session is invalid - logout user
+          if (validation.reason === 'SESSION_REPLACED') {
+            setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+          }
+          // Clear user state first
+          setUser(null)
+          setProfile(null)
+          // Sign out - handle errors gracefully
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+          } catch (error) {
+            // If signOut fails (403), session is already invalid - that's fine
+            console.warn('Sign out warning (session may already be invalid):', error.message)
+          }
+          // Also manually clear Supabase session storage to prevent auto-login on refresh
+          try {
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+                localStorage.removeItem(key)
+              }
+            })
+          } catch (clearError) {
+            // Ignore clear errors
+          }
+        }
+      }
+    }, 30000) // Check every 30 seconds
+
     // Listen for auth changes
     const {
       data: { subscription },
@@ -38,6 +126,27 @@ export function AuthProvider({ children }) {
       if (!isMounted) return
       
       if (session) {
+        // Validate session before accepting it (prevent auto-login with invalid session)
+        const validation = await validateCurrentSession()
+        if (!validation.isValid) {
+          // Session is invalid - don't set user, clear session
+          setUser(null)
+          setProfile(null)
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+            // Clear localStorage
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+                localStorage.removeItem(key)
+              }
+            })
+          } catch (error) {
+            // Ignore errors
+          }
+          setLoading(false)
+          return
+        }
+        
         setUser(session.user)
         const userId = session.user.id
         // Load profile in background, don't block - but prevent duplicates
@@ -60,6 +169,9 @@ export function AuthProvider({ children }) {
     return () => {
       isMounted = false
       subscription.unsubscribe()
+      if (sessionValidationInterval) {
+        clearInterval(sessionValidationInterval)
+      }
     }
   }, [])
 
@@ -108,8 +220,18 @@ export function AuthProvider({ children }) {
         return { success: false, error: error.message }
       }
 
-      if (data?.user) {
+      if (data?.user && data?.session) {
         setUser(data.user)
+        
+        // Create session in database (this will invalidate other sessions)
+        if (data.session.access_token) {
+          const sessionResult = await createSession(data.user.id, data.session.access_token)
+          
+          if (sessionResult.success && sessionResult.previousSessionsInvalidated > 0) {
+            // Other sessions were invalidated - this is expected behavior
+            console.log(`Previous ${sessionResult.previousSessionsInvalidated} session(s) invalidated`)
+          }
+        }
         
         // Try to load or create profile, but don't block login
         createProfileIfMissing(data.user.id, data.user)
@@ -216,9 +338,11 @@ export function AuthProvider({ children }) {
   }
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    // Invalidate session in database
+    await invalidateSession()
     setUser(null)
     setProfile(null)
+    setLogoutMessage(null)
   }
 
   // Combine user and profile for convenience
@@ -247,6 +371,8 @@ export function AuthProvider({ children }) {
         signup,
         logout,
         loading,
+        logoutMessage,
+        clearLogoutMessage: () => setLogoutMessage(null),
       }}
     >
       {children}

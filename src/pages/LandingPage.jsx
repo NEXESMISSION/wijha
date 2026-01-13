@@ -666,11 +666,19 @@ function LandingPage() {
                             >
                               <div className="category-course-thumbnail">
                                 <img 
-                                  src={course.thumbnail_image_url || course.trailer_video_url || `https://via.placeholder.com/300x200?text=${encodeURIComponent(course.title)}`}
+                                  src={course.thumbnail_image_url || course.trailer_video_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5Db3Vyc2UgSW1hZ2U8L3RleHQ+PC9zdmc+'}
                                   alt={course.title}
                                   className="category-course-image"
                                   onError={(e) => {
-                                    e.target.src = `https://via.placeholder.com/300x200?text=${encodeURIComponent(course.title)}`
+                                    // Prevent infinite loop by checking if we've already tried to fix it
+                                    if (!e.target.dataset.errorHandled) {
+                                      e.target.dataset.errorHandled = 'true'
+                                      // Use a simple SVG data URI as fallback (gray background with text)
+                                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5Db3Vyc2UgSW1hZ2U8L3RleHQ+PC9zdmc+'
+                                    } else {
+                                      // If even the fallback fails, hide the image to prevent console spam
+                                      e.target.style.display = 'none'
+                                    }
                                   }}
                                 />
                                 <div className={`category-course-badge bg-gradient-to-r ${planLabel.bg}`}>

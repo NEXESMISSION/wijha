@@ -1,20 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 
-function BackButton({ to = '/', label = '← العودة للرئيسية', style = {} }) {
+function BackButton({ to = '/', label = '← العودة', style = {} }) {
   const navigate = useNavigate()
 
   const handleGoBack = () => {
-    // Check if there's browser history to go back to
-    // If referrer exists and is from the same origin, go back
-    // Otherwise, go to landing page
-    const referrer = document.referrer
-    const currentOrigin = window.location.origin
-    
-    if (referrer && referrer.startsWith(currentOrigin) && referrer !== window.location.href) {
-      // We have a referrer from the same origin, go back
+    // Always go back to previous page in browser history
+    // If no history exists, fall back to the specified route
+    if (window.history.length > 1) {
       navigate(-1)
     } else {
-      // No valid referrer or direct access, go to landing page
+      // No history, go to fallback route
       navigate(to, { replace: false })
     }
   }
