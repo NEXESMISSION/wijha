@@ -16,6 +16,12 @@ export default function SessionBlockingOverlay() {
   const overlayRef = useRef(null)
 
   useEffect(() => {
+    // Don't block on login/signup pages
+    const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup'
+    if (isAuthPage) {
+      return // Don't block on auth pages
+    }
+    
     // Block all interactions when session is invalid
     // But allow alert interactions (alert has higher z-index)
     if (isSessionInvalid || logoutMessage) {
@@ -24,9 +30,11 @@ export default function SessionBlockingOverlay() {
       
       // Prevent all keyboard events (except on alert)
       const handleKeyDown = (e) => {
-        // Allow if clicking on alert
+        // Allow if clicking on alert - check by z-index or class
         const target = e.target
-        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
+        const alertElement = target.closest('.alert-overlay') || target.closest('.alert-modal') || 
+                           (target.closest('[style*="z-index: 100000"]') || target.closest('[style*="zIndex: 100000"]'))
+        if (alertElement) {
           return // Allow alert interactions
         }
         e.preventDefault()
@@ -37,10 +45,37 @@ export default function SessionBlockingOverlay() {
 
       // Prevent all mouse events (except on alert)
       const handleMouseDown = (e) => {
+        // Allow if clicking on alert - check by class or parent
+        const target = e.target
+        let element = target
+        while (element && element !== document.body) {
+          if (element.classList && (
+            element.classList.contains('alert-overlay') || 
+            element.classList.contains('alert-modal')
+          )) {
+            return // Allow alert interactions
+          }
+          element = element.parentElement
+        }
+        e.preventDefault()
+        e.stopPropagation()
+        e.stopImmediatePropagation()
+        return false
+      }
+      
+      // Also handle click events (for buttons)
+      const handleClick = (e) => {
         // Allow if clicking on alert
         const target = e.target
-        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
-          return // Allow alert interactions
+        let element = target
+        while (element && element !== document.body) {
+          if (element.classList && (
+            element.classList.contains('alert-overlay') || 
+            element.classList.contains('alert-modal')
+          )) {
+            return // Allow alert interactions
+          }
+          element = element.parentElement
         }
         e.preventDefault()
         e.stopPropagation()
@@ -50,9 +85,11 @@ export default function SessionBlockingOverlay() {
 
       // Prevent all touch events (except on alert)
       const handleTouchStart = (e) => {
-        // Allow if touching alert
+        // Allow if touching alert - check by z-index or class
         const target = e.target
-        if (target && (target.closest('.alert-overlay') || target.closest('.alert-modal'))) {
+        const alertElement = target.closest('.alert-overlay') || target.closest('.alert-modal') || 
+                           (target.closest('[style*="z-index: 100000"]') || target.closest('[style*="zIndex: 100000"]'))
+        if (alertElement) {
           return // Allow alert interactions
         }
         e.preventDefault()
@@ -78,6 +115,7 @@ export default function SessionBlockingOverlay() {
       // Add event listeners with capture phase to catch events early
       document.addEventListener('keydown', handleKeyDown, { capture: true, passive: false })
       document.addEventListener('mousedown', handleMouseDown, { capture: true, passive: false })
+      document.addEventListener('click', handleClick, { capture: true, passive: false })
       document.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false })
       document.addEventListener('contextmenu', handleContextMenu, { capture: true, passive: false })
       document.addEventListener('submit', handleSubmit, { capture: true, passive: false })
@@ -89,6 +127,7 @@ export default function SessionBlockingOverlay() {
         document.body.classList.remove('session-blocked')
         document.removeEventListener('keydown', handleKeyDown, { capture: true })
         document.removeEventListener('mousedown', handleMouseDown, { capture: true })
+        document.removeEventListener('click', handleClick, { capture: true })
         document.removeEventListener('touchstart', handleTouchStart, { capture: true })
         document.removeEventListener('contextmenu', handleContextMenu, { capture: true })
         document.removeEventListener('submit', handleSubmit, { capture: true })
@@ -99,6 +138,12 @@ export default function SessionBlockingOverlay() {
     }
   }, [isSessionInvalid, logoutMessage, navigate])
 
+  // Don't show overlay on login/signup pages
+  const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup'
+  if (isAuthPage) {
+    return null
+  }
+  
   // Don't show overlay if session is valid or no logout message
   if (!isSessionInvalid && !logoutMessage) {
     return null

@@ -69,7 +69,8 @@ function Alert({
         justifyContent: 'center',
         zIndex: 100000, // Higher than blocking overlay (99999) to appear on top
         padding: '1rem',
-        animation: 'fadeIn 0.2s ease-out'
+        animation: 'fadeIn 0.2s ease-out',
+        pointerEvents: 'auto' // Ensure clicks work
       }}
     >
       <div 
@@ -85,7 +86,8 @@ function Alert({
           border: `2px solid ${config.borderColor}`,
           overflow: 'hidden',
           animation: 'slideUp 0.3s ease-out',
-          position: 'relative'
+          position: 'relative',
+          pointerEvents: 'auto' // Ensure clicks work on modal
         }}
       >
         {/* Header with gradient */}

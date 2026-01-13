@@ -17,12 +17,6 @@ export function AuthProvider({ children }) {
     const profileLoadCache = new Set() // Track which profiles are being loaded
     let sessionValidationInterval = null
 
-    // Check for session replacement message
-    const sessionCheck = checkSessionReplaced()
-    if (sessionCheck.wasReplaced) {
-      setLogoutMessage(sessionCheck.message)
-    }
-
     // Get initial session and validate it
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session && isMounted) {
@@ -31,8 +25,12 @@ export function AuthProvider({ children }) {
         
         if (!validation.isValid) {
           // Session is invalid - logout user
+          setIsSessionInvalid(true)
           if (validation.reason === 'SESSION_REPLACED') {
             setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+          } else {
+            // Don't show message for other reasons on initial load (might be normal logout)
+            setLogoutMessage(null)
           }
           // Clear user state first to prevent auto-login
           setUser(null)
@@ -59,7 +57,9 @@ export function AuthProvider({ children }) {
           return
         }
 
-        // Session is valid - proceed with normal flow
+        // Session is valid - clear invalid flag and proceed
+        setIsSessionInvalid(false)
+        setLogoutMessage(null)
         setUser(session.user)
         const userId = session.user.id
         
