@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
+import { supabase } from '../lib/supabase'
 import '../styles/design-system.css'
 import {
   getAllCoursesForAdmin,
@@ -44,42 +45,53 @@ function AdminDashboard() {
   })
   const [settingsLoading, setSettingsLoading] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  
+  // User search states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [showUserDetails, setShowUserDetails] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState('')
+  const [sendingNotification, setSendingNotification] = useState(false)
 
   useEffect(() => {
     if (user?.id) {
-      // Only show loading if we don't have data yet
-      if (courses.length === 0 && enrollments.length === 0 && payoutRequests.length === 0) {
+      // Always load data when component mounts or user changes
       loadAllData()
-      }
       if (activeTab === 'settings') {
         loadSettings()
       }
     }
-  }, [user, activeTab])
+  }, [user?.id]) // Only depend on user.id, not activeTab to avoid unnecessary reloads
 
   const loadAllData = async (forceReload = false) => {
-    // Don't reload if we already have data unless forced
-    if (!forceReload && courses.length > 0 && enrollments.length > 0) {
-      return
-    }
-    
+    // forceReload parameter kept for backward compatibility but we always reload now
     try {
       setLoading(true)
       setError(null)
       
-      // Add timeout to prevent hanging
+      // Add longer timeout to prevent hanging (15 seconds)
       const dataPromise = Promise.all([
-        getAllCoursesForAdmin().catch(() => []),
-        getAllEnrollments().catch(() => []),
-        getAllPayoutRequests().catch(() => []),
-        getAllReports().catch(() => []),
-        getAllCategories().catch(() => [])
+        getAllCoursesForAdmin().catch((err) => { console.error('Error loading courses:', err); return [] }),
+        getAllEnrollments().catch((err) => { console.error('Error loading enrollments:', err); return [] }),
+        getAllPayoutRequests().catch((err) => { console.error('Error loading payouts:', err); return [] }),
+        getAllReports().catch((err) => { console.error('Error loading reports:', err); return [] }),
+        getAllCategories().catch((err) => { console.error('Error loading categories:', err); return [] })
       ])
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Data load timeout')), 5000)
+        setTimeout(() => reject(new Error('Data load timeout - try refreshing')), 15000)
       )
       
       const [coursesData, enrollmentsData, payoutsData, reportsData, categoriesData] = await Promise.race([dataPromise, timeoutPromise])
+      
+      // Debug logging
+      console.log('[AdminDashboard] Loaded data:', {
+        courses: coursesData?.length || 0,
+        enrollments: enrollmentsData?.length || 0,
+        payouts: payoutsData?.length || 0,
+        reports: reportsData?.length || 0,
+        categories: categoriesData?.length || 0
+      })
       
       // Set main data and clear loading immediately
       setCourses(coursesData || [])
@@ -117,6 +129,149 @@ function AdminDashboard() {
       showError('خطأ في تحميل إعدادات المنصة: ' + err.message)
     } finally {
       setSettingsLoading(false)
+    }
+  }
+
+  // Search for user by watermark_code or user ID
+  const searchUser = async () => {
+    if (!searchQuery.trim()) {
+      showWarning('يرجى إدخال كود العلامة المائية أو معرف المستخدم')
+      return
+    }
+
+    try {
+      setSearchLoading(true)
+      setError(null)
+      
+      const query = searchQuery.trim().toUpperCase()
+      
+      // Search by watermark_code first
+      let { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`watermark_code.ilike.%${query}%,id.ilike.%${query}%,email.ilike.%${query}%,name.ilike.%${query}%`)
+        .limit(10)
+
+      if (profileError) {
+        throw profileError
+      }
+
+      if (!profileData || profileData.length === 0) {
+        showWarning('لم يتم العثور على مستخدم بهذا الكود')
+        setSearchResults(null)
+        setSearchLoading(false)
+        return
+      }
+
+      // If multiple results, use the first one (or show list)
+      const userProfile = profileData[0]
+      const userId = userProfile.id
+
+      // Get all related data for this user
+      const [
+        userCourses,
+        userEnrollments,
+        userPayouts,
+        userReports,
+        videoEvents
+      ] = await Promise.all([
+        // Courses created by this user
+        supabase
+          .from('courses')
+          .select('*, categories(id, name, icon)')
+          .eq('creator_id', userId)
+          .order('created_at', { ascending: false }),
+        
+        // Enrollments for this user
+        supabase
+          .from('enrollments')
+          .select('*, courses(id, title, price, thumbnail_url), payment_proofs(*)')
+          .eq('student_id', userId)
+          .order('created_at', { ascending: false }),
+        
+        // Payout requests
+        supabase
+          .from('payout_requests')
+          .select('*')
+          .eq('creator_id', userId)
+          .order('submitted_at', { ascending: false }),
+        
+        // Reports
+        supabase
+          .from('reports')
+          .select('*, courses(id, title)')
+          .eq('reporter_id', userId)
+          .order('created_at', { ascending: false }),
+        
+        // Video events (if table exists)
+        supabase
+          .from('video_events')
+          .select('*')
+          .eq('student_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(100)
+          .catch(() => ({ data: [], error: null })) // Ignore if table doesn't exist
+      ])
+
+      const result = {
+        profile: userProfile,
+        courses: userCourses.data || [],
+        enrollments: userEnrollments.data || [],
+        payouts: userPayouts.data || [],
+        reports: userReports.data || [],
+        videoEvents: videoEvents.data || []
+      }
+
+      setSearchResults(result)
+      setShowUserDetails(true)
+      showSuccess(`تم العثور على المستخدم: ${userProfile.name || userProfile.email}`)
+    } catch (err) {
+      console.error('Error searching user:', err)
+      showError('خطأ في البحث: ' + err.message)
+      setSearchResults(null)
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
+  // Send notification/update to user
+  const sendNotification = async () => {
+    if (!notificationMessage.trim() || !searchResults?.profile) {
+      showWarning('يرجى إدخال رسالة الإشعار')
+      return
+    }
+
+    try {
+      setSendingNotification(true)
+      
+      // Create notification in database
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: searchResults.profile.id,
+          title: 'تحديث من الإدارة',
+          message: notificationMessage,
+          type: 'admin_update',
+          read: false
+        })
+
+      if (error) {
+        // If notifications table doesn't exist, create it first
+        if (error.code === '42P01') {
+          showWarning('جدول الإشعارات غير موجود. سيتم إنشاؤه...')
+          // You can create the table via SQL
+        } else {
+          throw error
+        }
+      } else {
+        showSuccess('تم إرسال الإشعار بنجاح')
+        setNotificationMessage('')
+      }
+    } catch (err) {
+      console.error('Error sending notification:', err)
+      showError('خطأ في إرسال الإشعار: ' + err.message)
+    } finally {
+      setSendingNotification(false)
     }
   }
 
@@ -329,25 +484,465 @@ function AdminDashboard() {
     }}>
       {/* Header */}
       <div style={{
-        marginBottom: '3rem'
+        marginBottom: '3rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+        gap: '1rem'
       }}>
-        <h1 style={{
-          fontSize: '3rem',
-          fontWeight: 900,
-          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          marginBottom: '0.5rem'
-        }}>
-          لوحة تحكم المشرف
-        </h1>
-        <p style={{
-          fontSize: '1.125rem',
-          color: '#6b7280'
-        }}>
-          إدارة شاملة لمنصة الدورات التدريبية
-        </p>
+        <div>
+          <h1 style={{
+            fontSize: '3rem',
+            fontWeight: 900,
+            background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            marginBottom: '0.5rem'
+          }}>
+            لوحة تحكم المشرف
+          </h1>
+          <p style={{
+            fontSize: '1.125rem',
+            color: '#6b7280'
+          }}>
+            إدارة شاملة لمنصة الدورات التدريبية
+          </p>
+        </div>
+        <button
+          onClick={() => loadAllData(true)}
+          disabled={loading}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.5rem',
+            background: loading ? '#e5e7eb' : 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.75rem',
+            fontSize: '1rem',
+            fontWeight: 600,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: '0 4px 12px rgba(124, 52, 217, 0.3)'
+          }}
+        >
+          {loading ? '⏳ جاري التحديث...' : '🔄 تحديث البيانات'}
+        </button>
       </div>
+
+      {/* User Search Bar */}
+      <div style={{
+        background: 'white',
+        borderRadius: '1rem',
+        padding: '1.5rem',
+        marginBottom: '2rem',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h2 style={{
+          fontSize: '1.5rem',
+          fontWeight: 700,
+          marginBottom: '1rem',
+          color: '#1f2937'
+        }}>
+          🔍 البحث عن مستخدم
+        </h2>
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          alignItems: 'flex-end'
+        }}>
+          <div style={{ flex: 1, minWidth: '300px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: '#4b5563'
+            }}>
+              كود العلامة المائية / معرف المستخدم / البريد الإلكتروني
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchUser()}
+              placeholder="أدخل كود العلامة المائية (مثل: D64A546A) أو معرف المستخدم"
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.75rem',
+                fontSize: '1rem',
+                transition: 'all 0.2s'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#7C34D9'}
+              onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+            />
+          </div>
+          <button
+            onClick={searchUser}
+            disabled={searchLoading || !searchQuery.trim()}
+            style={{
+              padding: '0.75rem 2rem',
+              background: searchLoading || !searchQuery.trim() 
+                ? '#e5e7eb' 
+                : 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+              color: searchLoading || !searchQuery.trim() ? '#9ca3af' : 'white',
+              border: 'none',
+              borderRadius: '0.75rem',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: searchLoading || !searchQuery.trim() ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: searchLoading || !searchQuery.trim() 
+                ? 'none' 
+                : '0 4px 12px rgba(124, 52, 217, 0.3)'
+            }}
+          >
+            {searchLoading ? '⏳ جاري البحث...' : '🔍 بحث'}
+          </button>
+        </div>
+      </div>
+
+      {/* User Details Modal */}
+      {showUserDetails && searchResults && (
+        <div style={{
+          background: 'white',
+          borderRadius: '1rem',
+          padding: '2rem',
+          marginBottom: '2rem',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1.5rem'
+          }}>
+            <h2 style={{
+              fontSize: '1.75rem',
+              fontWeight: 700,
+              color: '#1f2937'
+            }}>
+              📋 تفاصيل المستخدم
+            </h2>
+            <button
+              onClick={() => {
+                setShowUserDetails(false)
+                setSearchResults(null)
+                setSearchQuery('')
+              }}
+              style={{
+                padding: '0.5rem 1rem',
+                background: '#f3f4f6',
+                border: 'none',
+                borderRadius: '0.5rem',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: '#6b7280'
+              }}
+            >
+              ✕ إغلاق
+            </button>
+          </div>
+
+          {/* User Profile Info */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem',
+            padding: '1.5rem',
+            background: '#f9fafb',
+            borderRadius: '0.75rem'
+          }}>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>الاسم:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1.125rem', fontWeight: 600 }}>
+                {searchResults.profile.name || 'غير محدد'}
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>البريد الإلكتروني:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1.125rem' }}>
+                {searchResults.profile.email || 'غير محدد'}
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>معرف المستخدم:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1rem', fontFamily: 'monospace' }}>
+                {searchResults.profile.id}
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>كود العلامة المائية:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1.125rem', fontWeight: 700, color: '#7C34D9' }}>
+                {searchResults.profile.watermark_code || 'غير محدد'}
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>الدور:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1.125rem' }}>
+                {searchResults.profile.role === 'admin' ? '👑 مشرف' : 
+                 searchResults.profile.role === 'creator' ? '🎓 منشئ محتوى' : 
+                 searchResults.profile.role === 'student' ? '📚 طالب' : 
+                 searchResults.profile.role || 'غير محدد'}
+              </p>
+            </div>
+            <div>
+              <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>تاريخ التسجيل:</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '1rem' }}>
+                {searchResults.profile.created_at 
+                  ? new Date(searchResults.profile.created_at).toLocaleDateString('ar-SA')
+                  : 'غير محدد'}
+              </p>
+            </div>
+          </div>
+
+          {/* Statistics */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.75rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                {searchResults.courses.length}
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                الدورات المنشأة
+              </div>
+            </div>
+            <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.75rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                {searchResults.enrollments.length}
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                التسجيلات
+              </div>
+            </div>
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.75rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                {searchResults.payouts.length}
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                طلبات السحب
+              </div>
+            </div>
+            <div style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              padding: '1.5rem',
+              borderRadius: '0.75rem',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700 }}>
+                {searchResults.videoEvents.length}
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+                أحداث الفيديو
+              </div>
+            </div>
+          </div>
+
+          {/* Send Notification */}
+          <div style={{
+            background: '#f9fafb',
+            padding: '1.5rem',
+            borderRadius: '0.75rem',
+            marginBottom: '2rem'
+          }}>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              marginBottom: '1rem',
+              color: '#1f2937'
+            }}>
+              📨 إرسال إشعار/تحديث
+            </h3>
+            <textarea
+              value={notificationMessage}
+              onChange={(e) => setNotificationMessage(e.target.value)}
+              placeholder="اكتب رسالة الإشعار أو التحديث للمستخدم..."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '0.5rem',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                marginBottom: '1rem'
+              }}
+            />
+            <button
+              onClick={sendNotification}
+              disabled={sendingNotification || !notificationMessage.trim()}
+              style={{
+                padding: '0.75rem 2rem',
+                background: sendingNotification || !notificationMessage.trim()
+                  ? '#e5e7eb'
+                  : 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+                color: sendingNotification || !notificationMessage.trim() ? '#9ca3af' : 'white',
+                border: 'none',
+                borderRadius: '0.75rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: sendingNotification || !notificationMessage.trim() ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              {sendingNotification ? '⏳ جاري الإرسال...' : '📤 إرسال الإشعار'}
+            </button>
+          </div>
+
+          {/* User Courses */}
+          {searchResults.courses.length > 0 && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                marginBottom: '1rem',
+                color: '#1f2937'
+              }}>
+                🎓 الدورات المنشأة ({searchResults.courses.length})
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '1rem'
+              }}>
+                {searchResults.courses.map(course => (
+                  <div key={course.id} style={{
+                    background: '#f9fafb',
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                      {course.title}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      الحالة: {course.status === 'approved' ? '✅ معتمد' : 
+                               course.status === 'pending' ? '⏳ قيد المراجعة' : 
+                               course.status === 'rejected' ? '❌ مرفوض' : course.status}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      السعر: {course.price} د.أ
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* User Enrollments */}
+          {searchResults.enrollments.length > 0 && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                marginBottom: '1rem',
+                color: '#1f2937'
+              }}>
+                📚 التسجيلات ({searchResults.enrollments.length})
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '1rem'
+              }}>
+                {searchResults.enrollments.map(enrollment => (
+                  <div key={enrollment.id} style={{
+                    background: '#f9fafb',
+                    padding: '1rem',
+                    borderRadius: '0.75rem',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                      {enrollment.courses?.title || 'دورة غير معروفة'}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      الحالة: {enrollment.status === 'approved' ? '✅ معتمد' : 
+                               enrollment.status === 'pending' ? '⏳ قيد المراجعة' : 
+                               enrollment.status === 'rejected' ? '❌ مرفوض' : enrollment.status}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                      التاريخ: {enrollment.created_at 
+                        ? new Date(enrollment.created_at).toLocaleDateString('ar-SA')
+                        : 'غير محدد'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Video Events */}
+          {searchResults.videoEvents.length > 0 && (
+            <div>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                marginBottom: '1rem',
+                color: '#1f2937'
+              }}>
+                🎬 أحداث الفيديو ({searchResults.videoEvents.length})
+              </h3>
+              <div style={{
+                maxHeight: '400px',
+                overflowY: 'auto',
+                background: '#f9fafb',
+                padding: '1rem',
+                borderRadius: '0.75rem'
+              }}>
+                {searchResults.videoEvents.slice(0, 50).map((event, idx) => (
+                  <div key={idx} style={{
+                    padding: '0.75rem',
+                    marginBottom: '0.5rem',
+                    background: 'white',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.875rem'
+                  }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {event.event_type || 'حدث غير معروف'}
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                      {event.created_at 
+                        ? new Date(event.created_at).toLocaleString('ar-SA')
+                        : 'تاريخ غير محدد'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div style={{

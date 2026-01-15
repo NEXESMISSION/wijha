@@ -3,8 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
 import BackButton from '../components/BackButton'
+import { sanitizeInput, RateLimiter } from '../lib/security'
 import '../styles/design-system.css'
 import './Auth.css'
+
+const signupRateLimiter = new RateLimiter(5, 15 * 60 * 1000) // 5 attempts per 15 minutes
 
 function Signup() {
   const [name, setName] = useState('')
@@ -40,21 +43,46 @@ function Signup() {
     setError('')
     setLoading(true)
     
-    if (!name || !email || !password) {
-      setError('Please fill in all fields')
+    // Sanitize inputs
+    const sanitizedName = sanitizeInput(name)
+    const sanitizedEmail = sanitizeInput(email.trim().toLowerCase())
+    
+    if (!sanitizedName || !sanitizedEmail || !password) {
+      setError('يرجى ملء جميع الحقول')
       setLoading(false)
       return
     }
     
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
+    // Check rate limit
+    const rateLimitCheck = signupRateLimiter.checkLimit(sanitizedEmail)
+    if (!rateLimitCheck.allowed) {
+      setError(rateLimitCheck.message || 'تم تجاوز عدد المحاولات المسموح. يرجى المحاولة لاحقاً')
+      setLoading(false)
+      return
+    }
+    
+    // Enhanced password validation
+    if (password.length < 8) {
+      setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل')
+      setLoading(false)
+      return
+    }
+    
+    // Check for password complexity
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumbers = /\d/.test(password)
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+      setError('كلمة المرور يجب أن تحتوي على حرف كبير، حرف صغير، رقم، ورمز خاص')
       setLoading(false)
       return
     }
     
     try {
       // Add timeout to prevent hanging
-      const signupPromise = signup(name, email, password, role)
+      const signupPromise = signup(sanitizedName, sanitizedEmail, password, role)
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Signup request timed out')), 30000)
       )
@@ -62,6 +90,8 @@ function Signup() {
       const result = await Promise.race([signupPromise, timeoutPromise])
       
       if (result.success) {
+        // Reset rate limit on success
+        signupRateLimiter.reset(sanitizedEmail)
         if (result.message) {
           // Email confirmation required
           showSuccess(result.message, 'تم التسجيل')
@@ -72,7 +102,7 @@ function Signup() {
           // Redirect will happen in useEffect when user state updates
         }
       } else {
-        const errorMsg = result.error || 'Signup failed. Please check your information and try again.'
+        const errorMsg = result.error || 'فشل التسجيل. يرجى التحقق من المعلومات والمحاولة مرة أخرى.'
         setError(errorMsg)
       }
     } catch (err) {
@@ -196,7 +226,7 @@ function Signup() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="أنشئ كلمة مرور (6 أحرف على الأقل)"
+              placeholder="أنشئ كلمة مرور (8 أحرف على الأقل: حرف كبير، صغير، رقم، رمز)"
               className="form-input"
             />
           </div>

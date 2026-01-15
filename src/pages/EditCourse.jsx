@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
 import { getCourseWithModules, updateCourse, updateModule, updateLesson, createModule, createLesson, deleteModule, deleteLesson, getAllCategories } from '../lib/api'
 import { uploadThumbnail } from '../lib/storage'
+import { uploadVideoToBunny } from '../lib/bunnyStream'
 import '../styles/design-system.css'
 import './CourseForm.css'
 
@@ -97,9 +98,10 @@ function EditCourse() {
         lessons: (module.lessons || []).map(lesson => ({
           id: lesson.id,
           title: lesson.title,
+          video_id: lesson.video_id,
           video_url: lesson.video_url,
           order_index: lesson.order_index,
-          linkUrl: lesson.video_url || '', // Use existing URL
+          uploading: false,
         })),
       }))
 
@@ -147,7 +149,7 @@ function EditCourse() {
               ...module,
               lessons: [
                 ...module.lessons,
-                { id: Date.now(), title: '', linkUrl: '', order_index: module.lessons.length },
+                { id: Date.now(), title: '', video_id: null, video_url: null, uploading: false, order_index: module.lessons.length },
               ],
             }
           : module
@@ -170,6 +172,44 @@ function EditCourse() {
           : module
       )
     )
+  }
+
+  const handleVideoUpload = async (moduleId, lessonId, file) => {
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+      showError('الملف المحدد ليس ملف فيديو')
+      return
+    }
+
+    // Validate file size (max 2GB)
+    const maxSize = 2 * 1024 * 1024 * 1024 // 2GB
+    if (file.size > maxSize) {
+      showError('حجم الملف كبير جداً. الحد الأقصى هو 2 جيجابايت')
+      return
+    }
+
+    // Set uploading state
+    updateLessonData(moduleId, lessonId, 'uploading', true)
+    setError(null)
+
+    try {
+      // Upload video to Bunny Stream
+      const result = await uploadVideoToBunny(file, lessonId)
+      
+      // Update lesson with video_id and video_url (use embed_url for better compatibility)
+      updateLessonData(moduleId, lessonId, 'video_id', result.video_id)
+      updateLessonData(moduleId, lessonId, 'video_url', result.embed_url || result.video_url)
+      updateLessonData(moduleId, lessonId, 'embed_url', result.embed_url)
+      updateLessonData(moduleId, lessonId, 'uploading', false)
+      
+      showSuccess('تم رفع الفيديو بنجاح')
+    } catch (err) {
+      console.error('Error uploading video:', err)
+      showError('خطأ في رفع الفيديو: ' + (err.message || 'خطأ غير معروف'))
+      updateLessonData(moduleId, lessonId, 'uploading', false)
+    }
   }
 
   const handleThumbnailChange = async (e) => {
@@ -292,11 +332,13 @@ function EditCourse() {
           
           if (lessonData.id > 1000000000000) {
             // New lesson
-            if (lessonData.title.trim() && lessonData.linkUrl?.trim()) {
+            if (lessonData.title.trim() && lessonData.video_id) {
               await createLesson({
                 module_id: moduleData.id,
                 title: lessonData.title,
-                video_url: lessonData.linkUrl.trim(),
+                video_id: lessonData.video_id,
+                // Use embed_url for video playback (works without token authentication)
+                video_url: lessonData.embed_url || lessonData.video_url,
                 is_trailer: false,
                 order_index: lessonIndex,
               })
@@ -309,8 +351,11 @@ function EditCourse() {
                 order_index: lessonIndex,
               }
               
-              if (lessonData.linkUrl?.trim()) {
-                updates.video_url = lessonData.linkUrl.trim()
+              // Only update video if it was changed (video_id is present)
+              if (lessonData.video_id) {
+                updates.video_id = lessonData.video_id
+                // Use embed_url for video playback (works without token authentication)
+                updates.video_url = lessonData.embed_url || lessonData.video_url
               }
               
               await updateLesson(lessonData.id, updates)
@@ -335,7 +380,18 @@ function EditCourse() {
   }
 
   return (
-    <div className="course-form-page" style={{
+    <>
+      <style>{`
+        @keyframes progressMove {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(400%);
+          }
+        }
+      `}</style>
+      <div className="course-form-page" style={{
       maxWidth: '1200px',
       margin: '0 auto',
       padding: '2rem 1rem'
@@ -910,6 +966,7 @@ function EditCourse() {
         )}
       </form>
     </div>
+    </>
   )
 }
 

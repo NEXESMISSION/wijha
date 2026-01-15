@@ -672,6 +672,7 @@ export const getAllCreatorPayoutRequests = async (creatorId) => {
 }
 
 export const getAllPayoutRequests = async () => {
+  try {
   const { data, error } = await supabase
     .from('payout_requests')
     .select(`
@@ -686,7 +687,7 @@ export const getAllPayoutRequests = async () => {
     .order('submitted_at', { ascending: false })
   
   if (error) {
-    console.error('Error fetching payout requests:', error)
+      console.warn('Error fetching payout requests with join, trying simple query:', error.message)
     // Try alternative query if first fails
     const { data: altData, error: altError } = await supabase
       .from('payout_requests')
@@ -694,7 +695,8 @@ export const getAllPayoutRequests = async () => {
       .order('submitted_at', { ascending: false })
     
     if (altError) {
-      throw altError
+        console.warn('Payout requests table may not exist or RLS issue:', altError.message)
+        return [] // Return empty array instead of throwing
     }
     
     // Manually fetch profiles if join failed
@@ -721,6 +723,10 @@ export const getAllPayoutRequests = async () => {
     return altData || []
   }
   return data || []
+  } catch (err) {
+    console.warn('Failed to fetch payout requests:', err.message)
+    return [] // Return empty array on any error
+  }
 }
 
 export const updatePayoutRequestStatus = async (requestId, status, adminId, adminNote = null) => {
@@ -1348,4 +1354,40 @@ export const getPublishedCoursesFiltered = async (filters = {}) => {
   
   if (error) throw error
   return data
+}
+
+// Video API - Bunny Stream Integration
+// Note: Actual Bunny Stream API calls should be made via Supabase Edge Functions or backend API
+// These functions provide the interface for video operations
+
+/**
+ * Validate enrollment for video access
+ * Checks if student is enrolled and approved
+ * 
+ * @param {string} studentId - Student ID
+ * @param {string} courseId - Course ID
+ * @returns {Promise<boolean>}
+ */
+export const validateVideoAccess = async (studentId, courseId) => {
+  try {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('status')
+      .eq('student_id', studentId)
+      .eq('course_id', courseId)
+      .eq('status', 'approved')
+      .maybeSingle()
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return false // No enrollment found
+      }
+      throw error
+    }
+    
+    return data && data.status === 'approved'
+  } catch (error) {
+    console.error('Error validating video access:', error)
+    return false
+  }
 }

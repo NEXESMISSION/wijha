@@ -20,11 +20,73 @@ import {
 } from '../lib/api'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { validateFileUpload } from '../lib/security'
+import SecureBunnyPlayer from '../components/SecureBunnyPlayer'
 import '../styles/design-system.css'
 import './Course.css'
 
+/**
+ * Format duration from seconds to human-readable format
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} - Formatted duration (e.g., "5:30" or "1:05:30")
+ */
+function formatDuration(seconds) {
+  if (!seconds || seconds <= 0) return null
+  
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`
+}
+
+/**
+ * Format total duration to Arabic readable format
+ * @param {number} seconds - Total duration in seconds
+ * @returns {string} - Formatted duration (e.g., "ساعتان و 30 دقيقة")
+ */
+function formatTotalDuration(seconds) {
+  if (!seconds || seconds <= 0) return null
+  
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  
+  let result = ''
+  
+  if (hours > 0) {
+    if (hours === 1) {
+      result += 'ساعة'
+    } else if (hours === 2) {
+      result += 'ساعتان'
+    } else if (hours >= 3 && hours <= 10) {
+      result += `${hours} ساعات`
+    } else {
+      result += `${hours} ساعة`
+    }
+  }
+  
+  if (minutes > 0) {
+    if (result) result += ' و '
+    if (minutes === 1) {
+      result += 'دقيقة'
+    } else if (minutes === 2) {
+      result += 'دقيقتان'
+    } else if (minutes >= 3 && minutes <= 10) {
+      result += `${minutes} دقائق`
+    } else {
+      result += `${minutes} دقيقة`
+    }
+  }
+  
+  return result || 'أقل من دقيقة'
+}
+
 // Lesson Item Component
 function LessonItem({ lesson, canAccess, isActive, lessonNumber, onLessonClick, onEnrollClick }) {
+  const durationText = formatDuration(lesson.duration)
   if (!canAccess) {
   return (
       <div 
@@ -49,8 +111,21 @@ function LessonItem({ lesson, canAccess, isActive, lessonNumber, onLessonClick, 
           e.currentTarget.style.background = '#f9fafb'
         }}
       >
-        <span>🔒 {lessonNumber}. {lesson.title}</span>
-        {lesson.duration && <span style={{ color: '#6b7280', fontSize: '12px' }}>{lesson.duration}</span>}
+        <span style={{ flex: 1 }}>🔒 {lessonNumber}. {lesson.title}</span>
+        {durationText && (
+          <span style={{ 
+            color: '#6b7280', 
+            fontSize: '12px',
+            background: '#e5e7eb',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontFamily: 'monospace',
+            fontWeight: 500,
+            marginRight: '8px'
+          }}>
+            ⏱ {durationText}
+          </span>
+        )}
       </div>
     )
   }
@@ -82,8 +157,21 @@ function LessonItem({ lesson, canAccess, isActive, lessonNumber, onLessonClick, 
         }
       }}
     >
-      <span>{lessonNumber}. {lesson.title}</span>
-      {lesson.duration && <span style={{ color: '#6b7280', fontSize: '12px' }}>{lesson.duration}</span>}
+      <span style={{ flex: 1 }}>{lessonNumber}. {lesson.title}</span>
+      {durationText && (
+        <span style={{ 
+          color: isActive ? '#2563eb' : '#6b7280', 
+          fontSize: '12px',
+          background: isActive ? '#dbeafe' : '#f3f4f6',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontFamily: 'monospace',
+          fontWeight: 500,
+          marginRight: '8px'
+        }}>
+          ⏱ {durationText}
+        </span>
+      )}
     </div>
   )
 }
@@ -92,6 +180,7 @@ function CourseDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useAlert()
   const [course, setCourse] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -245,6 +334,17 @@ function CourseDetail() {
 
   const uploadPaymentProof = async (file) => {
     try {
+      // Validate file before upload
+      const validation = validateFileUpload(file, {
+        maxSize: 10 * 1024 * 1024, // 10MB for payment proofs
+        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf']
+      })
+      
+      if (!validation.valid) {
+        throw new Error(validation.error)
+      }
+      
       const fileExt = file.name.split('.').pop()
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
       // Upload directly to root of bucket (no folder prefix)
@@ -455,6 +555,101 @@ function CourseDetail() {
         )
     }
     
+    // Bunny Stream - Check for mediadelivery.net embed URLs or b-cdn.net URLs
+    if (url.includes('iframe.mediadelivery.net') || url.includes('b-cdn.net') || url.includes('mediadelivery.net')) {
+      // Extract video ID from various Bunny URL formats
+      let videoId = null
+      
+      // From embed URL: iframe.mediadelivery.net/embed/{libraryId}/{videoId}
+      const embedMatch = url.match(/mediadelivery\.net\/embed\/\d+\/([a-f0-9-]+)/i)
+      if (embedMatch) {
+        videoId = embedMatch[1]
+      }
+      
+      // From CDN URL: vz-xxx.b-cdn.net/{videoId}/playlist.m3u8
+      if (!videoId) {
+        const cdnMatch = url.match(/b-cdn\.net\/([a-f0-9-]+)\//i)
+        if (cdnMatch) {
+          videoId = cdnMatch[1]
+        }
+      }
+      
+      // From other mediadelivery format
+      if (!videoId) {
+        const otherMatch = url.match(/mediadelivery\.net\/(?:embed\/\d+\/)?([a-f0-9-]+)/i)
+        if (otherMatch) {
+          videoId = otherMatch[1]
+        }
+      }
+      
+      if (videoId) {
+        // Use SecureBunnyPlayer for authenticated video playback
+        // This will fetch signed URLs when user is enrolled
+        return (
+          <SecureBunnyPlayer
+            videoId={videoId}
+            lessonId={activeLesson && activeLesson !== 'trailer' ? activeLesson : null}
+            requireAuth={canAccessContent && activeLesson && activeLesson !== 'trailer'}
+            fallbackUrl={url.includes('?token=') ? url : null}
+            style={{ minHeight: '400px' }}
+          />
+        )
+      }
+      
+      // Fallback to direct iframe if no video ID found
+      return (
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          background: '#111827',
+          overflow: 'hidden'
+        }}>
+          <iframe
+            src={url}
+            loading="lazy"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              border: 'none'
+            }}
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )
+    }
+    
+    // Direct video files (mp4, webm, etc.)
+    if (url.match(/\.(mp4|webm|ogg|mov)$/i)) {
+      return (
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          background: '#111827',
+          overflow: 'hidden'
+        }}>
+          <video
+            src={url}
+            controls
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%'
+            }}
+          >
+            متصفحك لا يدعم تشغيل الفيديو
+          </video>
+          </div>
+        )
+    }
+    
     // PDF
     if (url.toLowerCase().endsWith('.pdf') || url.includes('pdf')) {
       return (
@@ -544,10 +739,45 @@ function CourseDetail() {
     return course.trailer_video_url || null
   }
 
-  const currentVideoUrl = getActiveLessonVideo()
+  const rawVideoUrl = getActiveLessonVideo()
+  
+  // Convert any direct CDN URL to embed URL to avoid 403 errors
+  const convertToEmbedUrl = (url) => {
+    if (!url) return null
+    
+    // Already an embed URL - return as is
+    if (url.includes('iframe.mediadelivery.net/embed')) {
+      return url
+    }
+    
+    // Extract video ID from b-cdn.net URL
+    const bunnyMatch = url.match(/b-cdn\.net\/([a-f0-9-]+)\//i)
+    if (bunnyMatch) {
+      const videoId = bunnyMatch[1]
+      const libraryId = import.meta.env.VITE_BUNNY_STREAM_LIBRARY_ID || '580416'
+      console.log('[CourseDetail] Converting CDN URL to embed:', { original: url, videoId, libraryId })
+      return `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true`
+    }
+    
+    // Return original URL for YouTube, Vimeo, etc.
+    return url
+  }
+  
+  const currentVideoUrl = convertToEmbedUrl(rawVideoUrl)
+  console.log('[CourseDetail] Video URL:', { raw: rawVideoUrl, converted: currentVideoUrl })
+  
   const totalLessons = course?.modules?.reduce((acc, module) => {
     return acc + (module.lessons?.filter(l => !l.is_trailer).length || 0)
   }, 0) || 0
+  
+  // Calculate total duration of all lessons (in seconds)
+  const totalDurationSeconds = course?.modules?.reduce((acc, module) => {
+    return acc + (module.lessons?.reduce((lessonAcc, lesson) => {
+      return lessonAcc + (lesson.duration || 0)
+    }, 0) || 0)
+  }, 0) || 0
+  
+  const totalDurationText = formatTotalDuration(totalDurationSeconds)
 
   if (loading) {
     return (
@@ -746,9 +976,25 @@ function CourseDetail() {
                   alignItems: 'center',
                   gap: '1rem',
                   color: '#6b7280',
-                  fontSize: '0.9375rem'
+                  fontSize: '0.9375rem',
+                  flexWrap: 'wrap'
                 }}>
                   <span>📚 {totalLessons} درس</span>
+                  {totalDurationText && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+                      color: 'white',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '1rem',
+                      fontSize: '0.875rem',
+                      fontWeight: 600
+                    }}>
+                      ⏱ {totalDurationText}
+                    </span>
+                  )}
                   {courseStats && (
                     <>
                       <span>👥 {courseStats.enrollmentCount} طالب</span>
@@ -1054,10 +1300,37 @@ function CourseDetail() {
             fontSize: '1.25rem',
             fontWeight: 700,
             color: '#1f2937',
-            marginBottom: '1.5rem'
+            marginBottom: '0.75rem'
           }}>
             محتوى الدورة
           </h2>
+          
+          {/* Course summary */}
+          <div style={{
+            display: 'flex',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            padding: '0.75rem',
+            background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+            borderRadius: '0.5rem',
+            fontSize: '0.8125rem',
+            color: '#6b7280',
+            flexWrap: 'wrap'
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              📚 <strong style={{ color: '#374151' }}>{totalLessons}</strong> درس
+            </span>
+            {totalDurationText && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                ⏱ <strong style={{ color: '#374151' }}>{totalDurationText}</strong>
+              </span>
+            )}
+            {course.modules && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                📂 <strong style={{ color: '#374151' }}>{course.modules.length}</strong> وحدة
+              </span>
+            )}
+          </div>
           
           {course.modules && course.modules.length > 0 ? (
             <>
@@ -1091,7 +1364,9 @@ function CourseDetail() {
                   {course.modules.map((module) => 
                     module.lessons
                       ?.filter(lesson => lesson.is_trailer)
-                      .map((lesson) => (
+                      .map((lesson) => {
+                        const trailerDuration = formatDuration(lesson.duration)
+                        return (
                         <div
                           key={lesson.id}
                           onClick={() => handleLessonClick(lesson.id)}
@@ -1123,10 +1398,23 @@ function CourseDetail() {
                             }
                           }}
                         >
-                          <span>▶ {lesson.title}</span>
-                          {lesson.duration && <span style={{ color: '#6b7280', fontSize: '12px' }}>{lesson.duration}</span>}
+                          <span style={{ flex: 1 }}>▶ {lesson.title}</span>
+                          {trailerDuration && (
+                            <span style={{ 
+                              color: activeLesson === lesson.id ? '#2563eb' : '#6b7280', 
+                              fontSize: '12px',
+                              background: activeLesson === lesson.id ? '#dbeafe' : '#e5e7eb',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontFamily: 'monospace',
+                              fontWeight: 500
+                            }}>
+                              ⏱ {trailerDuration}
+                            </span>
+                          )}
           </div>
-                      ))
+                        )
+                      })
         )}
 
                   {/* Show course trailer_video_url if no trailer lessons exist */}
@@ -1175,13 +1463,23 @@ function CourseDetail() {
                   .slice(0, moduleIndex)
                   .reduce((acc, m) => acc + (m.lessons?.filter(l => !l.is_trailer).length || 0), 0)
                 
+                // Calculate module duration
+                const moduleDurationSeconds = module.lessons?.reduce((acc, l) => acc + (l.duration || 0), 0) || 0
+                const moduleDurationText = formatDuration(moduleDurationSeconds)
+                
                 return (
                   <div key={module.id} style={{ marginBottom: '1.5rem' }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '0.75rem'
+                    }}>
                     <h3 style={{
                       fontSize: '0.875rem',
                       fontWeight: 600,
                       color: '#1f2937',
-                      marginBottom: '0.75rem',
+                        margin: 0,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem'
@@ -1202,6 +1500,19 @@ function CourseDetail() {
                       </span>
                       {module.title}
                     </h3>
+                      {moduleDurationText && (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: '#6b7280',
+                          fontFamily: 'monospace',
+                          background: '#f3f4f6',
+                          padding: '2px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {moduleDurationText}
+                        </span>
+                      )}
+                    </div>
                     {regularLessons.map((lesson, lessonIndex) => {
                       const lessonNumber = lessonOffset + lessonIndex + 1
                       return (

@@ -1,7 +1,14 @@
 import { supabase } from './supabase'
+import { validateVideoUpload } from './security'
 
 export const uploadVideo = async (file, folder = 'videos') => {
   try {
+    // Validate file before upload
+    const validation = validateVideoUpload(file)
+    if (!validation.valid) {
+      throw new Error(validation.error)
+    }
+    
     const fileExt = file.name.split('.').pop()
     const fileName = `${Math.random()}.${fileExt}`
     const filePath = `${folder}/${fileName}`
@@ -23,8 +30,16 @@ export const uploadVideo = async (file, folder = 'videos') => {
   }
 }
 
+import { validateImageUpload } from './security'
+
 export const uploadThumbnail = async (file) => {
   try {
+    // Validate file before upload
+    const validation = validateImageUpload(file)
+    if (!validation.valid) {
+      throw new Error(validation.error)
+    }
+    
     const fileExt = file.name.split('.').pop()
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
     

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
 import { createCourse, createModule, createLesson, getAllCategories } from '../lib/api'
 import { uploadThumbnail } from '../lib/storage'
+import { uploadVideoToBunny } from '../lib/bunnyStream'
 import '../styles/design-system.css'
 import './CourseForm.css'
 
@@ -23,7 +24,7 @@ function CreateCourse() {
     {
       id: Date.now(),
       title: '',
-      lessons: [{ id: Date.now(), title: '', linkUrl: '' }],
+      lessons: [{ id: Date.now(), title: '', video_id: null, video_url: null, embed_url: null, thumbnail_url: null, library_id: null, local_preview_url: null, file_name: null, uploading: false, duration: '' }],
     },
   ])
   const [trailerUrl, setTrailerUrl] = useState('')
@@ -69,7 +70,7 @@ function CreateCourse() {
       {
         id: Date.now(),
         title: '',
-        lessons: [{ id: Date.now(), title: '', linkUrl: '' }],
+        lessons: [{ id: Date.now(), title: '', video_id: null, video_url: null, uploading: false }],
       },
     ])
   }
@@ -90,7 +91,7 @@ function CreateCourse() {
               ...module,
               lessons: [
                 ...module.lessons,
-                { id: Date.now(), title: '', linkUrl: '' },
+                { id: Date.now(), title: '', video_id: null, video_url: null, embed_url: null, thumbnail_url: null, library_id: null, local_preview_url: null, file_name: null, uploading: false },
               ],
             }
           : module
@@ -113,6 +114,103 @@ function CreateCourse() {
           : module
       )
     )
+  }
+
+  const handleVideoUpload = async (moduleId, lessonId, file) => {
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+      showError('الملف المحدد ليس ملف فيديو')
+      return
+    }
+
+    // Validate file size (max 2GB)
+    const maxSize = 2 * 1024 * 1024 * 1024 // 2GB
+    if (file.size > maxSize) {
+      showError('حجم الملف كبير جداً. الحد الأقصى هو 2 جيجابايت')
+      return
+    }
+
+    // Create local preview URL immediately
+    const localPreviewUrl = URL.createObjectURL(file)
+    
+    // Set uploading state with local preview
+    setModules(
+      modules.map((module) =>
+        module.id === moduleId
+          ? {
+              ...module,
+              lessons: module.lessons.map((lesson) =>
+                lesson.id === lessonId
+                  ? {
+                      ...lesson,
+                      uploading: true,
+                      local_preview_url: localPreviewUrl,
+                      file_name: file.name
+                    }
+                  : lesson
+              ),
+            }
+          : module
+      )
+    )
+    setError(null)
+
+    try {
+      // Upload video to Bunny Stream
+      const result = await uploadVideoToBunny(file)
+      
+      // Update lesson with video_id, video_url, and keep local preview
+      setModules(
+        modules.map((module) =>
+          module.id === moduleId
+            ? {
+                ...module,
+                lessons: module.lessons.map((lesson) =>
+                  lesson.id === lessonId
+                    ? {
+                        ...lesson,
+                        video_id: result.video_id,
+                        video_url: result.video_url,
+                        embed_url: result.embed_url,
+                        thumbnail_url: result.thumbnail_url,
+                        library_id: result.library_id,
+                        local_preview_url: localPreviewUrl, // Keep local preview for instant playback
+                        uploading: false
+                      }
+                    : lesson
+                ),
+              }
+            : module
+        )
+      )
+      
+      showSuccess('تم رفع الفيديو بنجاح')
+    } catch (err) {
+      console.error('Error uploading video:', err)
+      showError('خطأ في رفع الفيديو: ' + (err.message || 'خطأ غير معروف'))
+      // Revoke the local URL on error
+      URL.revokeObjectURL(localPreviewUrl)
+      setModules(
+        modules.map((module) =>
+          module.id === moduleId
+            ? {
+                ...module,
+                lessons: module.lessons.map((lesson) =>
+                  lesson.id === lessonId
+                    ? {
+                        ...lesson,
+                        uploading: false,
+                        local_preview_url: null
+                      }
+                    : lesson
+                ),
+              }
+            : module
+        )
+      )
+    }
   }
 
   const handleThumbnailChange = async (e) => {
@@ -219,14 +317,17 @@ function CreateCourse() {
         for (let lessonIndex = 0; lessonIndex < moduleData.lessons.length; lessonIndex++) {
           const lessonData = moduleData.lessons[lessonIndex]
           
-          if (!lessonData.title.trim() || !lessonData.linkUrl?.trim()) {
-            continue // Skip empty lessons
+          if (!lessonData.title.trim() || !lessonData.video_id) {
+            continue // Skip empty lessons or lessons without uploaded video
           }
 
           await createLesson({
             module_id: module.id,
             title: lessonData.title,
-            video_url: lessonData.linkUrl.trim(),
+            video_id: lessonData.video_id,
+            // Use embed_url for video playback (works without token authentication)
+            // Fallback to video_url if embed_url is not available
+            video_url: lessonData.embed_url || lessonData.video_url,
             is_trailer: false,
             order_index: lessonIndex,
           })
@@ -245,11 +346,22 @@ function CreateCourse() {
   }
 
   return (
-    <div className="course-form-page" style={{
-      maxWidth: '1200px',
-      margin: '0 auto',
-      padding: '2rem 1rem'
-    }}>
+    <>
+      <style>{`
+        @keyframes progressMove {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(400%);
+          }
+        }
+      `}</style>
+      <div className="course-form-page" style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '2rem 1rem'
+      }}>
       <div className="form-header" style={{
         marginBottom: '2rem',
         textAlign: 'center'
@@ -758,19 +870,152 @@ function CreateCourse() {
                         placeholder="عنوان الدرس"
                       />
                       <input
-                        type="url"
-                        value={lesson.linkUrl || ''}
-                        onChange={(e) =>
-                          updateLesson(
-                            module.id,
-                            lesson.id,
-                            'linkUrl',
-                            e.target.value
-                          )
-                        }
-                        placeholder="رابط YouTube، PDF، أو صورة"
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0]
+                          if (file) {
+                            handleVideoUpload(module.id, lesson.id, file)
+                          }
+                          // Reset input to allow uploading same file again
+                          e.target.value = ''
+                        }}
+                        disabled={lesson.uploading}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '0.5rem',
+                          fontSize: '1rem',
+                          cursor: lesson.uploading ? 'not-allowed' : 'pointer',
+                          opacity: lesson.uploading ? 0.6 : 1
+                        }}
                       />
-                      <small>أدخل رابط (YouTube، PDF، أو صورة)</small>
+                      {lesson.uploading && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <div style={{
+                            width: '100%',
+                            height: '6px',
+                            backgroundColor: '#e5e7eb',
+                            borderRadius: '3px',
+                            overflow: 'hidden',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              height: '100%',
+                              width: '30%',
+                              background: 'linear-gradient(90deg, #F48434, #FFA366, #F48434)',
+                              borderRadius: '3px',
+                              animation: 'progressMove 1.5s ease-in-out infinite'
+                            }} />
+                          </div>
+                          <small style={{ 
+                            color: '#F48434', 
+                            display: 'block', 
+                            marginTop: '0.5rem',
+                            fontSize: '0.875rem',
+                            fontWeight: 500
+                          }}>
+                            جاري رفع الفيديو...
+                          </small>
+                        </div>
+                      )}
+                      {/* Video Preview - Show immediately using local file */}
+                      {(lesson.local_preview_url || lesson.video_id) && !lesson.uploading && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <small style={{ color: '#10b981', display: 'block', marginBottom: '0.75rem' }}>
+                            ✓ تم رفع الفيديو بنجاح {lesson.file_name && `(${lesson.file_name})`}
+                        </small>
+                          {/* Local Video Preview - Fast & Clean */}
+                          <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            maxWidth: '400px',
+                            borderRadius: '0.75rem',
+                            overflow: 'hidden',
+                            border: '2px solid #10b981',
+                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                            background: '#000'
+                          }}>
+                            <video
+                              src={lesson.local_preview_url}
+                              controls
+                              preload="metadata"
+                              style={{
+                                width: '100%',
+                                display: 'block',
+                                maxHeight: '225px'
+                              }}
+                            >
+                              متصفحك لا يدعم تشغيل الفيديو
+                            </video>
+                            <div style={{
+                              padding: '0.5rem 0.75rem',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}>
+                              <span>✓</span>
+                              <span>الفيديو جاهز</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show preview while uploading */}
+                      {lesson.local_preview_url && lesson.uploading && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            maxWidth: '400px',
+                            borderRadius: '0.75rem',
+                            overflow: 'hidden',
+                            border: '2px solid #F48434',
+                            boxShadow: '0 4px 12px rgba(244, 132, 52, 0.2)',
+                            background: '#000'
+                          }}>
+                            <video
+                              src={lesson.local_preview_url}
+                              controls
+                              preload="metadata"
+                              style={{
+                                width: '100%',
+                                display: 'block',
+                                maxHeight: '225px',
+                                opacity: 0.7
+                              }}
+                            >
+                              متصفحك لا يدعم تشغيل الفيديو
+                            </video>
+                            <div style={{
+                              padding: '0.5rem 0.75rem',
+                              background: 'linear-gradient(135deg, #F48434 0%, #e67321 100%)',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}>
+                              <span>⏳</span>
+                              <span>جاري الرفع...</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {!lesson.video_id && !lesson.uploading && (
+                        <small style={{ color: '#6b7280', display: 'block', marginTop: '0.5rem' }}>
+                          ارفع ملف فيديو للدرس (الحد الأقصى: 2 جيجابايت)
+                        </small>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -839,6 +1084,7 @@ function CreateCourse() {
         )}
       </form>
     </div>
+    </>
   )
 }
 

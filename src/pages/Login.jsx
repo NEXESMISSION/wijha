@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BackButton from '../components/BackButton'
+import { sanitizeInput, RateLimiter } from '../lib/security'
 import '../styles/design-system.css'
 import './Auth.css'
+
+const loginRateLimiter = new RateLimiter(5, 15 * 60 * 1000) // 5 attempts per 15 minutes
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -37,25 +40,38 @@ function Login() {
     setError('')
     setLoading(true)
     
-    if (!email || !password) {
-      setError('Please enter both email and password')
+    // Sanitize email
+    const sanitizedEmail = sanitizeInput(email.trim().toLowerCase())
+    
+    if (!sanitizedEmail || !password) {
+      setError('يرجى إدخال البريد الإلكتروني وكلمة المرور')
+      setLoading(false)
+      return
+    }
+    
+    // Check rate limit
+    const rateLimitCheck = loginRateLimiter.checkLimit(sanitizedEmail)
+    if (!rateLimitCheck.allowed) {
+      setError(rateLimitCheck.message || 'تم تجاوز عدد المحاولات المسموح. يرجى المحاولة لاحقاً')
       setLoading(false)
       return
     }
     
     try {
       // Add timeout to prevent hanging
-      const loginPromise = login(email, password)
+      const loginPromise = login(sanitizedEmail, password)
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Login request timed out')), 30000)
       )
       
       const result = await Promise.race([loginPromise, timeoutPromise])
       if (result.success) {
+        // Reset rate limit on success
+        loginRateLimiter.reset(sanitizedEmail)
         setJustLoggedIn(true)
         // Redirect will happen in useEffect when user state updates
       } else {
-        setError(result.error || 'Login failed')
+        setError(result.error || 'فشل تسجيل الدخول')
       }
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please try again.')

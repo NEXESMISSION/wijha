@@ -7,6 +7,11 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://iframe.mediadelivery.net https://www.youtube.com https://player.vimeo.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.b-cdn.net https://video.bunnycdn.com https://iframe.mediadelivery.net; media-src 'self' https: blob: https://*.b-cdn.net; frame-src 'self' https://*.supabase.co https://iframe.mediadelivery.net https://*.b-cdn.net https://www.youtube.com https://youtube.com https://youtu.be https://player.vimeo.com https://vimeo.com https://*.youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <!-- Note: X-Frame-Options, X-Content-Type-Options, etc. are set via HTTP headers in server config (netlify.toml, vercel.json, nginx.conf) -->
+    
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>" />
     <title>Course Marketplace MVP</title>
   </head>

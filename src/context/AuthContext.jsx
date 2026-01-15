@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase'
 import { getProfile, createProfileIfMissing } from '../lib/api'
 import { createSession, validateCurrentSession, invalidateSession, checkSessionReplaced } from '../lib/sessionManager'
 
+// Session timeout: 24 hours of inactivity
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000 // 24 hours
+
 // Only log in development mode
 const isDev = import.meta.env.DEV
 const debugLog = (...args) => {
@@ -62,23 +65,33 @@ export function AuthProvider({ children }) {
         // Session management is ONLY to detect if another device logged in
         // Do this in background - don't block the user
         if (session.access_token) {
-          // Quick check in background - only to detect device conflicts
-          Promise.all([
-            createSession(userId, session.access_token).catch(() => {}),
-            validateCurrentSession().then(validation => {
-              // ONLY act if another device logged in (SESSION_REPLACED)
-              if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
-                console.warn('[AuthContext] Another device logged in!')
-                setIsSessionInvalid(true)
-                setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
-                setUser(null)
-                setProfile(null)
-                supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+          // Create session FIRST, then validate AFTER it's created
+          isCreatingSessionRef.current = true
+          createSession(userId, session.access_token)
+            .then(() => {
+              // Wait a bit for DB to commit, then validate
+              setTimeout(() => {
+                isCreatingSessionRef.current = false
+                validateCurrentSession().then(validation => {
+                  // ONLY act if another device logged in (SESSION_REPLACED)
+                  if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
+                    console.warn('[AuthContext] Another device logged in!')
+                    setIsSessionInvalid(true)
+                    setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+                    setUser(null)
+                    setProfile(null)
+                    supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+                  }
+                }).catch(() => {})
+              }, 1000) // Wait 1 second for DB commit before validating
+            })
+            .catch((err) => {
+              // Ignore duplicate key errors - session already exists, that's fine
+              if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
+                console.warn('[AuthContext] Initial session creation warning:', err.message)
               }
-            }).catch(() => {})
-          ]).finally(() => {
-            isCreatingSessionRef.current = false
-          })
+              isCreatingSessionRef.current = false
+            })
         }
         
         // Load profile in background (non-blocking)
@@ -103,6 +116,20 @@ export function AuthProvider({ children }) {
       }
     })
 
+    // Track last activity time for session timeout
+    let lastActivityTime = Date.now()
+    
+    // Update last activity on user interaction
+    const updateActivity = () => {
+      lastActivityTime = Date.now()
+    }
+    
+    // Add event listeners for user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    activityEvents.forEach(event => {
+      window.addEventListener(event, updateActivity, { passive: true })
+    })
+    
     // Set up periodic session validation (every 60 seconds - optimized to reduce data usage)
     // Only validate if user is logged in and session is currently valid
     sessionValidationInterval = setInterval(async () => {
@@ -112,6 +139,31 @@ export function AuthProvider({ children }) {
       // 1. Session is already marked as invalid (save data)
       // 2. We're currently creating a session (avoid race condition)
       if (isSessionInvalid || isCreatingSessionRef.current) return
+      
+      // Check for session timeout (inactivity)
+      const timeSinceActivity = Date.now() - lastActivityTime
+      if (timeSinceActivity > SESSION_TIMEOUT_MS) {
+        console.warn('[AuthContext] Session timeout due to inactivity')
+        setIsSessionInvalid(true)
+        setLogoutMessage('تم انتهاء الجلسة بسبب عدم النشاط. يرجى تسجيل الدخول مرة أخرى.')
+        setUser(null)
+        setProfile(null)
+        try {
+          await supabase.auth.signOut({ scope: 'local' })
+        } catch (error) {
+          console.warn('Sign out warning:', error.message)
+        }
+        try {
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+              localStorage.removeItem(key)
+            }
+          })
+        } catch (clearError) {
+          // Ignore clear errors
+        }
+        return
+      }
       
       const { data: { session } } = await supabase.auth.getSession()
       if (session && user) {
@@ -187,39 +239,41 @@ export function AuthProvider({ children }) {
         // Session management is ONLY to detect if another device logged in
         // Do this in background - don't block the user at all
         if (session.access_token) {
-          // Quick check in background - only to detect device conflicts
-          // Ignore duplicate session errors - that's fine
-          // Delay validation slightly to avoid false positives right after login
-          setTimeout(() => {
-            Promise.all([
-              createSession(userId, session.access_token).catch((err) => {
-                // Ignore duplicate key errors - session already exists, that's fine
-                if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
-                  console.warn('[AuthContext] Session creation warning:', err.message)
-                }
-              }),
-              validateCurrentSession().then(validation => {
-                // ONLY act if another device logged in (SESSION_REPLACED)
-                // Don't act on other validation failures (might be temporary network issues)
-                if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
-                  console.warn('[AuthContext] Another device logged in!')
-                  setIsSessionInvalid(true)
-                  setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
-                  setUser(null)
-                  setProfile(null)
-                  supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-                } else if (!validation.isValid) {
-                  // Other validation failures - log but don't act (might be temporary)
-                  debugLog('[AuthContext] Session validation failed (non-critical):', validation.reason)
-                }
-              }).catch((err) => {
-                // Validation error - don't act, might be temporary network issue
-                debugLog('[AuthContext] Session validation error (non-critical):', err.message)
-              })
-            ]).finally(() => {
+          // Create session FIRST, then validate AFTER it's created
+          // This prevents race conditions where validation runs before session exists in DB
+          isCreatingSessionRef.current = true
+          createSession(userId, session.access_token)
+            .then(() => {
+              // Wait a bit for DB to commit, then validate
+              setTimeout(() => {
+                isCreatingSessionRef.current = false
+                validateCurrentSession().then(validation => {
+                  // ONLY act if another device logged in (SESSION_REPLACED)
+                  // Don't act on other validation failures (might be temporary network issues)
+                  if (!validation.isValid && validation.reason === 'SESSION_REPLACED') {
+                    console.warn('[AuthContext] Another device logged in!')
+                    setIsSessionInvalid(true)
+                    setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+                    setUser(null)
+                    setProfile(null)
+                    supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+                  } else if (!validation.isValid) {
+                    // Other validation failures - log but don't act (might be temporary)
+                    debugLog('[AuthContext] Session validation failed (non-critical):', validation.reason)
+                  }
+                }).catch((err) => {
+                  // Validation error - don't act, might be temporary network issue
+                  debugLog('[AuthContext] Session validation error (non-critical):', err.message)
+                })
+              }, 1000) // Wait 1 second for DB commit before validating
+            })
+            .catch((err) => {
+              // Ignore duplicate key errors - session already exists, that's fine
+              if (err.code !== '23505' && !err.message?.includes('duplicate key') && !err.message?.includes('already exists')) {
+                console.warn('[AuthContext] Session creation warning:', err.message)
+              }
               isCreatingSessionRef.current = false
             })
-          }, 2000) // Wait 2 seconds before validating to avoid false positives after login
         }
         
         // Load profile in background (non-blocking)
@@ -230,11 +284,26 @@ export function AuthProvider({ children }) {
           }).catch(() => {})
         }
       } else {
-        debugLog('[AuthContext] No session in auth state change, clearing user')
-        setUser(null)
-        setProfile(null)
-        profileLoadCache.clear()
-        setLoading(false)
+        // Handle events with no session
+        if (event === 'SIGNED_OUT') {
+          // Only clear user on explicit SIGNED_OUT events
+          debugLog('[AuthContext] SIGNED_OUT event, clearing user')
+          setUser(null)
+          setProfile(null)
+          profileLoadCache.clear()
+          setLoading(false)
+        } else if (event === 'INITIAL_SESSION') {
+          // INITIAL_SESSION with no session is normal on page load - just clear loading
+          debugLog('[AuthContext] INITIAL_SESSION with no session (normal on page load)')
+          setLoading(false)
+          loadingCleared = true
+          clearTimeout(loadingTimeout)
+        } else if (event === 'TOKEN_REFRESHED') {
+          // TOKEN_REFRESHED events can have null session temporarily - don't clear user
+          debugLog('[AuthContext] TOKEN_REFRESHED with no session (temporary)')
+          setLoading(false)
+        }
+        // For all other events with no session, do nothing (might be temporary)
       }
     })
 
@@ -246,6 +315,10 @@ export function AuthProvider({ children }) {
       if (sessionValidationInterval) {
         clearInterval(sessionValidationInterval)
       }
+      // Remove activity event listeners
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, updateActivity)
+      })
     }
   }, [])
 
@@ -300,34 +373,14 @@ export function AuthProvider({ children }) {
       }
 
       if (data?.user && data?.session) {
-        setUser(data.user)
+        // IMMEDIATELY clear any stale logout messages and invalid session flags
+        // This prevents showing "session ended" popup after successful login
+        setIsSessionInvalid(false)
+        setLogoutMessage(null)
         
-        // Create session in database (this will invalidate other sessions)
-        if (data.session.access_token) {
-          isCreatingSessionRef.current = true // Mark that we're creating a session
-          setIsSessionInvalid(false) // Clear invalid flag before creating
-          
-          try {
-            const sessionResult = await createSession(data.user.id, data.session.access_token)
-            
-            if (sessionResult.success) {
-              // Session created successfully - clear invalid flag
-              setIsSessionInvalid(false)
-              setLogoutMessage(null)
-              
-              // Wait a bit before allowing validation (let session commit to DB)
-              setTimeout(() => {
-                isCreatingSessionRef.current = false
-              }, 1500) // 1.5 second grace period for DB commit
-            } else {
-              console.error('Failed to create session:', sessionResult.error)
-              isCreatingSessionRef.current = false
-            }
-          } catch (error) {
-            console.error('Error creating session:', error)
-            isCreatingSessionRef.current = false
-          }
-        }
+        // Don't create session here - let onAuthStateChange handle it
+        // This prevents race conditions and duplicate session creation
+        setUser(data.user)
         
         // Try to load or create profile, but don't block login
         createProfileIfMissing(data.user.id, data.user)
@@ -362,9 +415,22 @@ export function AuthProvider({ children }) {
         return { success: false, error: 'Invalid email format' }
       }
 
-      // Validate password length
-      if (password.length < 6) {
-        return { success: false, error: 'Password must be at least 6 characters' }
+      // Enhanced password validation
+      if (password.length < 8) {
+        return { success: false, error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' }
+      }
+      
+      // Check for password complexity
+      const hasUpperCase = /[A-Z]/.test(password)
+      const hasLowerCase = /[a-z]/.test(password)
+      const hasNumbers = /\d/.test(password)
+      const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password)
+      
+      if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+        return { 
+          success: false, 
+          error: 'كلمة المرور يجب أن تحتوي على حرف كبير، حرف صغير، رقم، ورمز خاص' 
+        }
       }
 
       // Wrap Supabase call with timeout
@@ -442,6 +508,65 @@ export function AuthProvider({ children }) {
     setIsSessionInvalid(false)
   }
 
+  // Validate session manually (can be called on route changes)
+  const validateSession = async () => {
+    // Skip if already invalid or currently creating session
+    if (isSessionInvalid || isCreatingSessionRef.current || !user) {
+      return { isValid: true } // Return valid to prevent unnecessary checks
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        return { isValid: false }
+      }
+
+      const validation = await validateCurrentSession()
+      if (!validation.isValid) {
+        // Session is invalid - logout user
+        setIsSessionInvalid(true)
+        
+        // ONLY show logout message if session was REPLACED by another device
+        if (validation.reason === 'SESSION_REPLACED') {
+          setLogoutMessage('تم تسجيل خروجك لأن حسابك تم الوصول إليه من جهاز آخر.')
+        } else {
+          // For other reasons, just logout silently (no message)
+          setLogoutMessage(null)
+        }
+        
+        // Clear user state first
+        setUser(null)
+        setProfile(null)
+        // Sign out - handle errors gracefully
+        try {
+          await supabase.auth.signOut({ scope: 'local' })
+        } catch (error) {
+          // If signOut fails (403), session is already invalid - that's fine
+          console.warn('Sign out warning (session may already be invalid):', error.message)
+        }
+        // Also manually clear Supabase session storage to prevent auto-login on refresh
+        try {
+          Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') && (key.includes('auth-token') || key.includes('auth'))) {
+              localStorage.removeItem(key)
+            }
+          })
+        } catch (clearError) {
+          // Ignore clear errors
+        }
+      } else {
+        // Session is valid - clear invalid flag
+        setIsSessionInvalid(false)
+      }
+      
+      return validation
+    } catch (error) {
+      // Ignore validation errors (might be temporary network issues)
+      console.warn('[AuthContext] Session validation error:', error.message)
+      return { isValid: true } // Assume valid on error to prevent false logouts
+    }
+  }
+
   // Combine user and profile for convenience
   // If profile doesn't exist yet, still return user with role from metadata
   let userWithProfile = null
@@ -467,6 +592,7 @@ export function AuthProvider({ children }) {
         login,
         signup,
         logout,
+        validateSession,
         loading,
         logoutMessage,
         isSessionInvalid,

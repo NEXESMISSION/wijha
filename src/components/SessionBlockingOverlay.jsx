@@ -16,14 +16,23 @@ export default function SessionBlockingOverlay() {
   const overlayRef = useRef(null)
 
   useEffect(() => {
-    // Don't block on login/signup pages
+    // PRIORITY 1: Don't block if user is logged in (even if there's a stale logout message)
+    // This must be checked FIRST to prevent blocking after successful login
+    if (user) {
+      document.body.classList.remove('session-blocked')
+      return // Exit early - user is logged in, no blocking needed
+    }
+    
+    // PRIORITY 2: Don't block on login/signup pages
     const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup'
     if (isAuthPage) {
+      document.body.classList.remove('session-blocked')
       return // Don't block on auth pages
     }
     
-    // Block all interactions when session is invalid
+    // PRIORITY 3: Block all interactions when session is invalid
     // But allow alert interactions (alert has higher z-index)
+    // Only block if user is NOT logged in AND session is invalid
     if (isSessionInvalid || logoutMessage) {
       // Add class to body to block interactions
       document.body.classList.add('session-blocked')
@@ -136,15 +145,22 @@ export default function SessionBlockingOverlay() {
       // Remove blocking class when session is valid
       document.body.classList.remove('session-blocked')
     }
-  }, [isSessionInvalid, logoutMessage, navigate])
+  }, [isSessionInvalid, logoutMessage, navigate, user])
 
-  // Don't show overlay on login/signup pages
+  // PRIORITY 1: Don't show overlay if user is logged in (session is valid)
+  // This prevents showing overlay during/after login when there's a stale logoutMessage
+  // This check MUST be first to prevent false positives
+  if (user) {
+    return null
+  }
+  
+  // PRIORITY 2: Don't show overlay on login/signup pages
   const isAuthPage = window.location.pathname === '/login' || window.location.pathname === '/signup'
   if (isAuthPage) {
     return null
   }
   
-  // Don't show overlay if session is valid or no logout message
+  // PRIORITY 3: Don't show overlay if session is valid and no logout message
   if (!isSessionInvalid && !logoutMessage) {
     return null
   }
