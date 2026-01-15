@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useContext } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useAlert } from '../context/AlertContext'
+import { AuthContext } from '../context/AuthContext'
+import { AlertContext } from '../context/AlertContext'
 import SessionBlockingOverlay from './SessionBlockingOverlay'
 
 /**
@@ -12,32 +12,28 @@ import SessionBlockingOverlay from './SessionBlockingOverlay'
  * Blocks all interactions when session is invalid
  */
 export default function SessionGuard({ children }) {
-  // Safely get auth context - handle case where it might not be ready
-  let logoutMessage, clearLogoutMessage, isSessionInvalid, user, validateSession
-  let showWarning
-  try {
-    const auth = useAuth()
-    logoutMessage = auth.logoutMessage
-    clearLogoutMessage = auth.clearLogoutMessage
-    isSessionInvalid = auth.isSessionInvalid
-    user = auth.user
-    validateSession = auth.validateSession
-  } catch (err) {
-    // Auth context not ready yet - return children without guard
-    console.warn('[SessionGuard] Auth context not ready:', err)
+  // Always call ALL hooks first - React requires hooks to be called in the same order every render
+  // Use useContext directly instead of useAuth/useAlert to avoid throwing errors
+  const auth = useContext(AuthContext)
+  const alert = useContext(AlertContext)
+  
+  // Always call these hooks too - same order every render
+  const navigate = useNavigate()
+  const location = useLocation()
+  
+  // If auth context is not available, return children without guard
+  // But all hooks have been called, so React is happy
+  if (!auth) {
     return <>{children}</>
   }
   
-  try {
-    const alert = useAlert()
-    showWarning = alert.showWarning
-  } catch (err) {
-    console.warn('[SessionGuard] Alert context not ready:', err)
-    showWarning = () => {}
-  }
-  
-  const navigate = useNavigate()
-  const location = useLocation()
+  // Safely extract values with defaults
+  const logoutMessage = auth?.logoutMessage || null
+  const clearLogoutMessage = auth?.clearLogoutMessage || (() => {})
+  const isSessionInvalid = auth?.isSessionInvalid || false
+  const user = auth?.user || null
+  const validateSession = auth?.validateSession || (async () => ({ isValid: true }))
+  const showWarning = alert?.showWarning || (() => {})
   const hasShownMessage = useRef(false)
   const lastLogoutMessage = useRef(null)
   const isValidatingRef = useRef(false)

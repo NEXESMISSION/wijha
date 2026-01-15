@@ -382,11 +382,104 @@ export default function SecureBunnyPlayer({
           left: 0,
           width: '100%',
           height: '100%',
-          border: 'none'
+          border: 'none',
+          zIndex: 1 // Lower z-index to ensure watermarks appear above
         }}
         allow="accelerometer; gyroscope; autoplay; encrypted-media"
         // Remove allowFullScreen to force users to use our fullscreen button
       />
+      
+      {/* Watermark Overlay - Transparent layer above iframe to ensure watermarks are visible */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 10000, // Very high z-index to be above iframe
+          pointerEvents: 'none', // Allow clicks to pass through to iframe
+          overflow: 'hidden'
+        }}
+      >
+        {/* 1. Bottom Center Watermark - OBVIOUS (high opacity) - Raised up more */}
+        {watermarkCode && (
+          <div
+            style={{
+              ...watermarkBaseStyle,
+              left: '50%',
+              bottom: '50px', // Raised up more (was 15px)
+              transform: 'translateX(-50%)',
+              zIndex: 1,
+              opacity: 0.4, // Obvious - 40% opacity
+              color: 'rgba(255, 255, 255, 0.4)',
+              fontSize: isFullscreen ? '20px' : '16px',
+              letterSpacing: '2px',
+              textShadow: '0 0 12px rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.5)',
+              pointerEvents: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              userSelect: 'none'
+            }}
+          >
+            {watermarkCode}
+          </div>
+        )}
+        
+        {/* 2. Center Watermark - Low opacity (always visible) - More visible */}
+        {watermarkCode && (
+          <div
+            style={{
+              ...watermarkBaseStyle,
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%) rotate(-5deg)',
+              zIndex: 2,
+              opacity: 0.25, // Increased opacity - 25% (was 18%)
+              color: 'rgba(255, 255, 255, 0.25)',
+              fontSize: isFullscreen ? '36px' : '28px',
+              letterSpacing: '3px',
+              textShadow: '0 0 15px rgba(0,0,0,0.6), 0 0 8px rgba(0,0,0,0.4)',
+              pointerEvents: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              userSelect: 'none',
+              mixBlendMode: 'normal' // Ensure visibility
+            }}
+          >
+            {watermarkCode}
+          </div>
+        )}
+        
+        {/* 3. Moving Watermark - Low opacity (moves every 5 seconds) - More visible */}
+        {watermarkCode && (
+          <div
+            key={`moving-${movingWatermarkPosition.x}-${movingWatermarkPosition.y}`}
+            style={{
+              ...watermarkBaseStyle,
+              left: `${movingWatermarkPosition.x}%`,
+              top: `${movingWatermarkPosition.y}%`,
+              transform: 'translate(-50%, -50%) rotate(-10deg)',
+              zIndex: 3,
+              opacity: 0.22, // More visible - 22% (was 12%)
+              color: 'rgba(255, 255, 255, 0.22)',
+              fontSize: isFullscreen ? '18px' : '14px',
+              letterSpacing: '2px',
+              textShadow: '0 0 12px rgba(0,0,0,0.6), 0 0 6px rgba(0,0,0,0.4)',
+              transition: 'all 0.8s ease-in-out', // Smooth movement
+              pointerEvents: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              userSelect: 'none'
+            }}
+          >
+            {watermarkCode}
+          </div>
+        )}
+      </div>
       
       {/* Custom Fullscreen Button */}
       <button
@@ -401,7 +494,7 @@ export default function SecureBunnyPlayer({
           borderRadius: '8px',
           padding: isFullscreen ? '12px 16px' : '8px 12px',
           cursor: 'pointer',
-          zIndex: 30,
+          zIndex: 10001, // Above watermark overlay
           fontSize: isFullscreen ? '16px' : '14px',
           display: 'flex',
           alignItems: 'center',
@@ -430,83 +523,6 @@ export default function SecureBunnyPlayer({
           </>
         )}
       </button>
-      
-      {/* 1. Bottom Center Watermark - OBVIOUS (high opacity) - Raised up more */}
-      {watermarkCode && (
-        <div
-          style={{
-            ...watermarkBaseStyle,
-            left: '50%',
-            bottom: '50px', // Raised up more (was 15px)
-            transform: 'translateX(-50%)',
-            zIndex: 9999,
-            opacity: 0.4, // Obvious - 40% opacity
-            color: 'rgba(255, 255, 255, 0.4)',
-            fontSize: isFullscreen ? '20px' : '16px',
-            letterSpacing: '2px',
-            textShadow: '0 0 12px rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.5)',
-            pointerEvents: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            msUserSelect: 'none',
-            userSelect: 'none'
-          }}
-        >
-          {watermarkCode}
-        </div>
-      )}
-      
-      {/* 2. Center Watermark - Low opacity (always visible) - More visible */}
-      {watermarkCode && (
-        <div
-          style={{
-            ...watermarkBaseStyle,
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%) rotate(-5deg)',
-            zIndex: 9998,
-            opacity: 0.18, // More visible - 18% (was 8%)
-            color: 'rgba(255, 255, 255, 0.18)',
-            fontSize: isFullscreen ? '36px' : '28px',
-            letterSpacing: '3px',
-            textShadow: '0 0 15px rgba(0,0,0,0.6), 0 0 8px rgba(0,0,0,0.4)',
-            pointerEvents: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            msUserSelect: 'none',
-            userSelect: 'none'
-          }}
-        >
-          {watermarkCode}
-        </div>
-      )}
-      
-      {/* 3. Moving Watermark - Low opacity (moves every 5 seconds) - More visible */}
-      {watermarkCode && (
-        <div
-          key={`moving-${movingWatermarkPosition.x}-${movingWatermarkPosition.y}`}
-          style={{
-            ...watermarkBaseStyle,
-            left: `${movingWatermarkPosition.x}%`,
-            top: `${movingWatermarkPosition.y}%`,
-            transform: 'translate(-50%, -50%) rotate(-10deg)',
-            zIndex: 9997,
-            opacity: 0.22, // More visible - 22% (was 12%)
-            color: 'rgba(255, 255, 255, 0.22)',
-            fontSize: isFullscreen ? '18px' : '14px',
-            letterSpacing: '2px',
-            textShadow: '0 0 12px rgba(0,0,0,0.6), 0 0 6px rgba(0,0,0,0.4)',
-            transition: 'all 0.8s ease-in-out', // Smooth movement
-            pointerEvents: 'none',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            msUserSelect: 'none',
-            userSelect: 'none'
-          }}
-        >
-          {watermarkCode}
-        </div>
-      )}
       
       {/* Recording Warning Banner */}
       {isRecordingDetected && (

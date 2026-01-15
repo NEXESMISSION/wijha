@@ -12,7 +12,7 @@ const debugLog = (...args) => {
   if (isDev) console.log(...args)
 }
 
-const AuthContext = createContext(null)
+export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BackButton from '../components/BackButton'
 import { sanitizeInput, RateLimiter } from '../lib/security'
@@ -15,12 +15,28 @@ function Login() {
   const [justLoggedIn, setJustLoggedIn] = useState(false)
   const { login, user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnUrl = searchParams.get('returnUrl')
 
   const getRedirectRoute = (userRole) => {
+    // If there's a returnUrl, use it (user was redirected from a protected page)
+    if (returnUrl) {
+      try {
+        const decodedUrl = decodeURIComponent(returnUrl)
+        // Validate that it's a safe internal route
+        if (decodedUrl.startsWith('/') && !decodedUrl.startsWith('//')) {
+          return decodedUrl
+        }
+      } catch (err) {
+        console.warn('Invalid returnUrl:', returnUrl)
+      }
+    }
+    
+    // Otherwise, redirect based on role
     if (userRole === 'student') return '/courses'
     if (userRole === 'creator') return '/creator/dashboard'
     if (userRole === 'admin') return '/admin/dashboard'
-    return '/'
+    return '/courses' // Default to courses instead of landing page
   }
 
   // Redirect after login when user state updates
@@ -30,7 +46,7 @@ function Login() {
       navigate(route, { replace: true })
       setJustLoggedIn(false)
     }
-  }, [user, justLoggedIn, navigate])
+  }, [user, justLoggedIn, navigate, returnUrl])
 
   const [loading, setLoading] = useState(false)
 

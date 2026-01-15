@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AlertProvider } from './context/AlertContext'
 import Login from './pages/Login'
@@ -18,17 +18,30 @@ import SessionGuard from './components/SessionGuard'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
   
+  // Show loading while checking auth - don't redirect yet
   if (loading) {
     return <div className="loading">Loading...</div>
   }
   
+  // Only redirect to login if user is not logged in AND loading is complete
   if (!user) {
-    return <Navigate to="/login" replace />
+    // Save current path to redirect back after login
+    const returnUrl = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/login?returnUrl=${returnUrl}`} replace />
   }
   
+  // Check role permissions
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />
+    // Redirect to user's default dashboard instead of landing page
+    const getDefaultRoute = () => {
+      if (user.role === 'student') return '/courses'
+      if (user.role === 'creator') return '/creator/dashboard'
+      if (user.role === 'admin') return '/admin/dashboard'
+      return '/courses' // Default to courses instead of landing page
+    }
+    return <Navigate to={getDefaultRoute()} replace />
   }
   
   return children
@@ -52,13 +65,13 @@ function AppRoutes() {
     return <div className="loading">Loading...</div>
   }
   
-  // Redirect based on role
+  // Redirect based on role - but don't redirect if user is already on a valid page
   const getDefaultRoute = () => {
-    if (!user) return '/'
+    if (!user) return '/courses' // Default to courses instead of landing page
     if (user.role === 'student') return '/courses' // Students go to courses page
     if (user.role === 'creator') return '/creator/dashboard'
     if (user.role === 'admin') return '/admin/dashboard'
-    return '/'
+    return '/courses' // Default to courses instead of landing page
   }
   
   return (

@@ -673,33 +673,18 @@ export const getAllCreatorPayoutRequests = async (creatorId) => {
 
 export const getAllPayoutRequests = async () => {
   try {
-  const { data, error } = await supabase
-    .from('payout_requests')
-    .select(`
-      *,
-      profiles:creator_id (
-        id,
-        name,
-        profile_slug,
-        email
-      )
-    `)
-    .order('submitted_at', { ascending: false })
-  
-  if (error) {
-      console.warn('Error fetching payout requests with join, trying simple query:', error.message)
-    // Try alternative query if first fails
+  // Try simple query first (more reliable)
     const { data: altData, error: altError } = await supabase
       .from('payout_requests')
       .select('*')
       .order('submitted_at', { ascending: false })
     
     if (altError) {
-        console.warn('Payout requests table may not exist or RLS issue:', altError.message)
-        return [] // Return empty array instead of throwing
+      console.warn('Payout requests table may not exist or RLS issue:', altError.message)
+      return [] // Return empty array instead of throwing
     }
     
-    // Manually fetch profiles if join failed
+  // If we have data, try to fetch profiles separately
     if (altData && altData.length > 0) {
       const creatorIds = [...new Set(altData.map(r => r.creator_id))]
       const { data: profilesData } = await supabase
@@ -721,8 +706,6 @@ export const getAllPayoutRequests = async () => {
     }
     
     return altData || []
-  }
-  return data || []
   } catch (err) {
     console.warn('Failed to fetch payout requests:', err.message)
     return [] // Return empty array on any error

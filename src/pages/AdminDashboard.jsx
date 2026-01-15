@@ -143,14 +143,28 @@ function AdminDashboard() {
       setSearchLoading(true)
       setError(null)
       
-      const query = searchQuery.trim().toUpperCase()
+      const query = searchQuery.trim()
+      const queryUpper = query.toUpperCase()
       
-      // Search by watermark_code first
-      let { data: profileData, error: profileError } = await supabase
+      // Check if query looks like a UUID (contains dashes and is 36 chars)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query)
+      
+      let profileQuery = supabase
         .from('profiles')
         .select('*')
-        .or(`watermark_code.ilike.%${query}%,id.ilike.%${query}%,email.ilike.%${query}%,name.ilike.%${query}%`)
-        .limit(10)
+      
+      // If it's a UUID, search by exact match on id, otherwise use ilike for text fields
+      // Note: email is not in profiles table, it's in auth.users, so we only search watermark_code and name
+      if (isUUID) {
+        // Search by UUID (exact match) OR text fields (ilike)
+        profileQuery = profileQuery.or(`id.eq.${query},watermark_code.ilike.%${queryUpper}%,name.ilike.%${query}%`)
+      } else {
+        // Search only in text fields (watermark_code, name)
+        // Note: watermark_code is usually uppercase, so use queryUpper
+        profileQuery = profileQuery.or(`watermark_code.ilike.%${queryUpper}%,name.ilike.%${query}%`)
+      }
+      
+      const { data: profileData, error: profileError } = await profileQuery.limit(10)
 
       if (profileError) {
         throw profileError
@@ -166,6 +180,24 @@ function AdminDashboard() {
       // If multiple results, use the first one (or show list)
       const userProfile = profileData[0]
       const userId = userProfile.id
+
+      // Get email from auth.users using RPC function
+      let userEmail = null
+      try {
+        const { data: emailData, error: emailError } = await supabase
+          .rpc('get_user_email', { user_id: userId })
+        
+        if (!emailError && emailData) {
+          userEmail = emailData
+        }
+      } catch (err) {
+        console.warn('Could not fetch email:', err.message)
+      }
+
+      // Add email to profile if found
+      if (userEmail) {
+        userProfile.email = userEmail
+      }
 
       // Get all related data for this user
       const [
@@ -204,13 +236,20 @@ function AdminDashboard() {
           .order('created_at', { ascending: false }),
         
         // Video events (if table exists)
-        supabase
-          .from('video_events')
-          .select('*')
-          .eq('student_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(100)
-          .catch(() => ({ data: [], error: null })) // Ignore if table doesn't exist
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from('video_events')
+              .select('*')
+              .eq('student_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(100)
+            return { data: data || [], error }
+          } catch (err) {
+            // Ignore if table doesn't exist
+            return { data: [], error: null }
+          }
+        })()
       ])
 
       const result = {
@@ -219,12 +258,12 @@ function AdminDashboard() {
         enrollments: userEnrollments.data || [],
         payouts: userPayouts.data || [],
         reports: userReports.data || [],
-        videoEvents: videoEvents.data || []
+        videoEvents: videoEvents.data || [] // videoEvents is already resolved from Promise.all
       }
 
       setSearchResults(result)
       setShowUserDetails(true)
-      showSuccess(`تم العثور على المستخدم: ${userProfile.name || userProfile.email}`)
+      showSuccess(`تم العثور على المستخدم: ${userProfile.name || userProfile.watermark_code || 'مستخدم'}`)
     } catch (err) {
       console.error('Error searching user:', err)
       showError('خطأ في البحث: ' + err.message)
@@ -492,22 +531,22 @@ function AdminDashboard() {
         gap: '1rem'
       }}>
         <div>
-          <h1 style={{
-            fontSize: '3rem',
-            fontWeight: 900,
-            background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            marginBottom: '0.5rem'
-          }}>
-            لوحة تحكم المشرف
-          </h1>
-          <p style={{
-            fontSize: '1.125rem',
-            color: '#6b7280'
-          }}>
-            إدارة شاملة لمنصة الدورات التدريبية
-          </p>
+        <h1 style={{
+          fontSize: '3rem',
+          fontWeight: 900,
+          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '0.5rem'
+        }}>
+          لوحة تحكم المشرف
+        </h1>
+        <p style={{
+          fontSize: '1.125rem',
+          color: '#6b7280'
+        }}>
+          إدارة شاملة لمنصة الدورات التدريبية
+        </p>
         </div>
         <button
           onClick={() => loadAllData(true)}
@@ -669,7 +708,7 @@ function AdminDashboard() {
             <div>
               <strong style={{ color: '#6b7280', fontSize: '0.875rem' }}>البريد الإلكتروني:</strong>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '1.125rem' }}>
-                {searchResults.profile.email || 'غير محدد'}
+                {searchResults.profile.email || 'غير متاح'}
               </p>
             </div>
             <div>

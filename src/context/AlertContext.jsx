@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 import Alert from '../components/Alert'
 
-const AlertContext = createContext()
+export const AlertContext = createContext()
 
 export function AlertProvider({ children }) {
   const [alert, setAlert] = useState({
