@@ -100,6 +100,72 @@ Deno.serve(async (req: Request) => {
     // Verify user_id matches authenticated user
     const userId = user.id;
 
+    // Check if profile exists - if not, create it
+    const { data: existingProfile, error: profileCheckError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+      console.error('Error checking profile:', profileCheckError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to check user profile',
+          details: profileCheckError.message
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+
+    // If profile doesn't exist, create it
+    if (!existingProfile) {
+      console.log('Profile not found, creating profile for user:', userId);
+      const { data: newProfile, error: profileCreateError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: user.email || '',
+          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+          role: user.user_metadata?.role || 'student',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (profileCreateError) {
+        console.error('Error creating profile:', profileCreateError);
+        // If it's a unique constraint violation, profile might have been created by another process
+        if (profileCreateError.code === '23505' || profileCreateError.message?.includes('duplicate key')) {
+          console.log('Profile creation failed due to duplicate, continuing...');
+        } else {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Failed to create user profile',
+              details: profileCreateError.message,
+              code: profileCreateError.code
+            }),
+            {
+              status: 500,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+              },
+            }
+          );
+        }
+      } else {
+        console.log('Profile created successfully:', newProfile.id);
+      }
+    }
+
     // Check if enrollment already exists
     const { data: existingEnrollment } = await supabase
       .from('enrollments')
