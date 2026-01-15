@@ -12,6 +12,7 @@ import CreatorProfile from './pages/CreatorProfile'
 import CreateCourse from './pages/CreateCourse'
 import EditCourse from './pages/EditCourse'
 import LandingPage from './pages/LandingPage'
+import PaymentStatus from './pages/PaymentStatus'
 import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
 import SessionGuard from './components/SessionGuard'
@@ -140,6 +141,13 @@ function AppRoutes() {
       <Route path="/creator/:slug" element={
         <Layout>
           <CreatorProfile />
+        </Layout>
+      } />
+      
+      {/* Payment Status Route */}
+      <Route path="/payment-status" element={
+        <Layout>
+          <PaymentStatus />
         </Layout>
       } />
       

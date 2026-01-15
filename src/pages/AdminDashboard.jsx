@@ -22,6 +22,9 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
+  getAllTeachersWithEarnings,
+  getAllStudentsForAdmin,
+  getPlatformFinancials,
 } from '../lib/api'
 import './Dashboard.css'
 
@@ -54,6 +57,12 @@ function AdminDashboard() {
   const [notificationMessage, setNotificationMessage] = useState('')
   const [sendingNotification, setSendingNotification] = useState(false)
 
+  // New: Users and Financial states
+  const [teachers, setTeachers] = useState([])
+  const [students, setStudents] = useState([])
+  const [financials, setFinancials] = useState(null)
+  const [usersTab, setUsersTab] = useState('teachers') // 'teachers' or 'students'
+
   useEffect(() => {
     if (user?.id) {
       // Always load data when component mounts or user changes
@@ -70,19 +79,22 @@ function AdminDashboard() {
       setLoading(true)
       setError(null)
       
-      // Add longer timeout to prevent hanging (15 seconds)
+      // Add longer timeout to prevent hanging (20 seconds)
       const dataPromise = Promise.all([
         getAllCoursesForAdmin().catch((err) => { console.error('Error loading courses:', err); return [] }),
         getAllEnrollments().catch((err) => { console.error('Error loading enrollments:', err); return [] }),
         getAllPayoutRequests().catch((err) => { console.error('Error loading payouts:', err); return [] }),
         getAllReports().catch((err) => { console.error('Error loading reports:', err); return [] }),
-        getAllCategories().catch((err) => { console.error('Error loading categories:', err); return [] })
+        getAllCategories().catch((err) => { console.error('Error loading categories:', err); return [] }),
+        getAllTeachersWithEarnings().catch((err) => { console.error('Error loading teachers:', err); return [] }),
+        getAllStudentsForAdmin().catch((err) => { console.error('Error loading students:', err); return [] }),
+        getPlatformFinancials().catch((err) => { console.error('Error loading financials:', err); return null })
       ])
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Data load timeout - try refreshing')), 15000)
+        setTimeout(() => reject(new Error('Data load timeout - try refreshing')), 20000)
       )
       
-      const [coursesData, enrollmentsData, payoutsData, reportsData, categoriesData] = await Promise.race([dataPromise, timeoutPromise])
+      const [coursesData, enrollmentsData, payoutsData, reportsData, categoriesData, teachersData, studentsData, financialsData] = await Promise.race([dataPromise, timeoutPromise])
       
       // Debug logging
       console.log('[AdminDashboard] Loaded data:', {
@@ -90,12 +102,18 @@ function AdminDashboard() {
         enrollments: enrollmentsData?.length || 0,
         payouts: payoutsData?.length || 0,
         reports: reportsData?.length || 0,
-        categories: categoriesData?.length || 0
+        categories: categoriesData?.length || 0,
+        teachers: teachersData?.length || 0,
+        students: studentsData?.length || 0,
+        financials: !!financialsData
       })
       
       // Set main data and clear loading immediately
       setCourses(coursesData || [])
       setEnrollments(enrollmentsData || [])
+      setTeachers(teachersData || [])
+      setStudents(studentsData || [])
+      setFinancials(financialsData)
       setLoading(false) // Clear loading immediately
       
       // Set extra data (non-blocking)
@@ -497,6 +515,18 @@ function AdminDashboard() {
     },
     categories: {
       total: categories.length
+    },
+    users: {
+      teachers: teachers.length,
+      students: students.length,
+      total: teachers.length + students.length
+    },
+    finance: financials || {
+      totalRevenue: 0,
+      platformEarnings: 0,
+      teacherEarnings: 0,
+      totalPaidOut: 0,
+      pendingPayouts: 0
     }
   }
 
@@ -1327,6 +1357,128 @@ function AdminDashboard() {
               </div>
             </div>
 
+            {/* Users Card */}
+            <div
+              onClick={() => setActiveTab('users')}
+              style={{
+                background: 'white',
+                borderRadius: '1rem',
+                padding: '1.5rem',
+                boxShadow: '0 10px 30px -5px rgba(22, 22, 22, 0.08)',
+                border: '2px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)'
+                e.currentTarget.style.boxShadow = '0 20px 40px -5px rgba(22, 22, 22, 0.15)'
+                e.currentTarget.style.borderColor = '#7C34D9'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 10px 30px -5px rgba(22, 22, 22, 0.08)'
+                e.currentTarget.style.borderColor = 'transparent'
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '1rem'
+              }}>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 900,
+                  background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  {stats.users.total}
+                </div>
+                <div style={{
+                  fontSize: '2rem'
+                }}>
+                  👥
+                </div>
+              </div>
+              <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                color: '#1f2937',
+                marginBottom: '0.5rem'
+              }}>
+                المستخدمون
+              </h3>
+              <div style={{
+                display: 'flex',
+                gap: '1rem',
+                fontSize: '0.875rem',
+                color: '#6b7280'
+              }}>
+                <span style={{ color: '#7C34D9' }}>
+                  {stats.users.teachers} مدرس
+                </span>
+                <span style={{ color: '#10b981' }}>
+                  {stats.users.students} طالب
+                </span>
+              </div>
+            </div>
+
+            {/* Finance Card */}
+            <div
+              onClick={() => setActiveTab('finance')}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                borderRadius: '1rem',
+                padding: '1.5rem',
+                boxShadow: '0 10px 30px -5px rgba(16, 185, 129, 0.3)',
+                border: '2px solid transparent',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                color: 'white'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)'
+                e.currentTarget.style.boxShadow = '0 20px 40px -5px rgba(16, 185, 129, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 10px 30px -5px rgba(16, 185, 129, 0.3)'
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '1rem'
+              }}>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: 900
+                }}>
+                  {stats.finance.platformEarnings?.toFixed(2) || '0.00'} د.ت
+                </div>
+                <div style={{
+                  fontSize: '2rem'
+                }}>
+                  💰
+                </div>
+              </div>
+              <h3 style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                marginBottom: '0.5rem'
+              }}>
+                أرباح المنصة
+              </h3>
+              <div style={{
+                fontSize: '0.875rem',
+                opacity: 0.9
+              }}>
+                من {stats.finance.totalRevenue?.toFixed(2) || '0.00'} د.ت إجمالي المبيعات
+              </div>
+            </div>
+
             {/* Settings Card */}
             <div
               onClick={() => setActiveTab('settings')}
@@ -1484,6 +1636,38 @@ function AdminDashboard() {
               }}
             >
               الفئات ({stats.categories.total})
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: activeTab === 'users' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : 'transparent',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: activeTab === 'users' ? 'white' : '#6b7280',
+                fontWeight: activeTab === 'users' ? 700 : 500,
+                fontSize: '0.9375rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              👥 المستخدمون ({stats.users.total})
+            </button>
+            <button
+              onClick={() => setActiveTab('finance')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: activeTab === 'finance' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+                border: 'none',
+                borderRadius: '0.5rem',
+                color: activeTab === 'finance' ? 'white' : '#6b7280',
+                fontWeight: activeTab === 'finance' ? 700 : 500,
+                fontSize: '0.9375rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              💰 المالية
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -2168,6 +2352,497 @@ function AdminDashboard() {
           )}
         </div>
       )}
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+        <div className="admin-section">
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '2rem',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <h2 style={{ margin: 0 }}>👥 إدارة المستخدمين</h2>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setUsersTab('teachers')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: usersTab === 'teachers' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : '#f3f4f6',
+                  color: usersTab === 'teachers' ? 'white' : '#6b7280',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🎓 المدرسون ({teachers.length})
+              </button>
+              <button
+                onClick={() => setUsersTab('students')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  background: usersTab === 'students' ? 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)' : '#f3f4f6',
+                  color: usersTab === 'students' ? 'white' : '#6b7280',
+                  border: 'none',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📚 الطلاب ({students.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Teachers List */}
+          {usersTab === 'teachers' && (
+            <div>
+              {teachers.length === 0 ? (
+                <div className="empty-state">لا يوجد مدرسون بعد</div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gap: '1rem'
+                }}>
+                  {teachers.map(teacher => (
+                    <div key={teacher.id} style={{
+                      background: 'white',
+                      borderRadius: '1rem',
+                      padding: '1.5rem',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'auto 1fr auto',
+                        gap: '1.5rem',
+                        alignItems: 'center'
+                      }}>
+                        {/* Avatar */}
+                        <div style={{
+                          width: '60px',
+                          height: '60px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1.5rem',
+                          fontWeight: 700
+                        }}>
+                          {teacher.name?.charAt(0)?.toUpperCase() || '👤'}
+                        </div>
+
+                        {/* Info */}
+                        <div>
+                          <h3 style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 700,
+                            color: '#1f2937',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <Link to={`/creator/${teacher.profile_slug || teacher.id}`} style={{
+                              color: '#7C34D9',
+                              textDecoration: 'none'
+                            }}>
+                              {teacher.name || 'مدرس بدون اسم'}
+                            </Link>
+                          </h3>
+                          <div style={{
+                            display: 'flex',
+                            gap: '1.5rem',
+                            flexWrap: 'wrap',
+                            fontSize: '0.875rem',
+                            color: '#6b7280'
+                          }}>
+                            <span>📧 {teacher.email || 'لا يوجد بريد'}</span>
+                            <span>📚 {teacher.coursesCount || 0} دورة</span>
+                            <span>👥 {teacher.studentsCount || 0} طالب</span>
+                            <span>📅 انضم {new Date(teacher.created_at).toLocaleDateString('ar-SA')}</span>
+                          </div>
+                        </div>
+
+                        {/* Earnings */}
+                        <div style={{
+                          textAlign: 'left',
+                          minWidth: '200px'
+                        }}>
+                          <div style={{
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: 'white',
+                            padding: '1rem',
+                            borderRadius: '0.75rem',
+                            textAlign: 'center'
+                          }}>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                              {(teacher.availableBalance || 0).toFixed(2)} د.ت
+                            </div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.9 }}>
+                              الرصيد المتاح
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Financial Details */}
+                      <div style={{
+                        marginTop: '1rem',
+                        paddingTop: '1rem',
+                        borderTop: '1px solid #e5e7eb',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: '1rem'
+                      }}>
+                        <div style={{ textAlign: 'center', padding: '0.75rem', background: '#f9fafb', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>
+                            {(teacher.totalEarnings || 0).toFixed(2)} د.ت
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>إجمالي المبيعات</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#92400e' }}>
+                            {(teacher.platformFees || 0).toFixed(2)} د.ت
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#92400e' }}>رسوم المنصة</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '0.75rem', background: '#d1fae5', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46' }}>
+                            {(teacher.netEarnings || 0).toFixed(2)} د.ت
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#065f46' }}>صافي الأرباح</div>
+                        </div>
+                        <div style={{ textAlign: 'center', padding: '0.75rem', background: '#dbeafe', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e40af' }}>
+                            {(teacher.paidOut || 0).toFixed(2)} د.ت
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#1e40af' }}>تم صرفه</div>
+                        </div>
+                        {teacher.pendingPayout > 0 && (
+                          <div style={{ textAlign: 'center', padding: '0.75rem', background: '#fef3c7', borderRadius: '0.5rem' }}>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#d97706' }}>
+                              {(teacher.pendingPayout || 0).toFixed(2)} د.ت
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#d97706' }}>قيد السحب</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Students List */}
+          {usersTab === 'students' && (
+            <div>
+              {students.length === 0 ? (
+                <div className="empty-state">لا يوجد طلاب بعد</div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                  gap: '1rem'
+                }}>
+                  {students.map(student => (
+                    <div key={student.id} style={{
+                      background: 'white',
+                      borderRadius: '1rem',
+                      padding: '1.25rem',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        alignItems: 'center',
+                        marginBottom: '1rem'
+                      }}>
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1.25rem',
+                          fontWeight: 700
+                        }}>
+                          {student.name?.charAt(0)?.toUpperCase() || '📚'}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{
+                            fontSize: '1rem',
+                            fontWeight: 700,
+                            color: '#1f2937',
+                            marginBottom: '0.25rem'
+                          }}>
+                            {student.name || 'طالب بدون اسم'}
+                          </h4>
+                          <div style={{ fontSize: '0.8125rem', color: '#6b7280' }}>
+                            {student.email || student.watermark_code || 'لا يوجد بريد'}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gap: '0.5rem',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{
+                          padding: '0.5rem',
+                          background: '#f3f4f6',
+                          borderRadius: '0.5rem'
+                        }}>
+                          <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#7C34D9' }}>
+                            {student.enrollmentsCount || 0}
+                          </div>
+                          <div style={{ fontSize: '0.6875rem', color: '#6b7280' }}>تسجيل</div>
+                        </div>
+                        <div style={{
+                          padding: '0.5rem',
+                          background: '#d1fae5',
+                          borderRadius: '0.5rem'
+                        }}>
+                          <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#065f46' }}>
+                            {student.approvedEnrollments || 0}
+                          </div>
+                          <div style={{ fontSize: '0.6875rem', color: '#065f46' }}>موافق</div>
+                        </div>
+                        <div style={{
+                          padding: '0.5rem',
+                          background: '#fef3c7',
+                          borderRadius: '0.5rem'
+                        }}>
+                          <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#92400e' }}>
+                            {(student.totalSpent || 0).toFixed(0)} د.ت
+                          </div>
+                          <div style={{ fontSize: '0.6875rem', color: '#92400e' }}>منفق</div>
+                        </div>
+                      </div>
+                      <div style={{
+                        marginTop: '0.75rem',
+                        fontSize: '0.75rem',
+                        color: '#9ca3af',
+                        textAlign: 'center'
+                      }}>
+                        📅 انضم {new Date(student.created_at).toLocaleDateString('ar-SA')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Finance Tab */}
+      {activeTab === 'finance' && (
+        <div className="admin-section">
+          <h2 style={{ marginBottom: '2rem' }}>💰 نظرة مالية شاملة</h2>
+          
+          {/* Main Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            {/* Total Revenue */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
+              borderRadius: '1rem',
+              padding: '2rem',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                إجمالي المبيعات
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                {(stats.finance.totalRevenue || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: '1rem', opacity: 0.9 }}>دينار تونسي</div>
+            </div>
+
+            {/* Platform Earnings */}
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              borderRadius: '1rem',
+              padding: '2rem',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                🎉 أرباح المنصة ({stats.finance.platformFeePercent || 10}%)
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                {(stats.finance.platformEarnings || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: '1rem', opacity: 0.9 }}>دينار تونسي</div>
+            </div>
+
+            {/* Teacher Earnings */}
+            <div style={{
+              background: 'linear-gradient(135deg, #7C34D9 0%, #F48434 100%)',
+              borderRadius: '1rem',
+              padding: '2rem',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                أرباح المدرسين
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                {(stats.finance.teacherEarnings || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: '1rem', opacity: 0.9 }}>دينار تونسي</div>
+            </div>
+
+            {/* Paid Out */}
+            <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              borderRadius: '1rem',
+              padding: '2rem',
+              color: 'white',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                تم صرفه للمدرسين
+              </div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 900 }}>
+                {(stats.finance.totalPaidOut || 0).toFixed(2)}
+              </div>
+              <div style={{ fontSize: '1rem', opacity: 0.9 }}>دينار تونسي</div>
+            </div>
+          </div>
+
+          {/* Secondary Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              textAlign: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#7C34D9' }}>
+                {stats.finance.totalEnrollments || 0}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>إجمالي التسجيلات</div>
+            </div>
+            <div style={{
+              background: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              textAlign: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>
+                {stats.finance.publishedCourses || 0}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>دورات منشورة</div>
+            </div>
+            <div style={{
+              background: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              textAlign: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
+                {(stats.finance.pendingPayouts || 0).toFixed(2)} د.ت
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>مدفوعات معلقة</div>
+            </div>
+            <div style={{
+              background: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              textAlign: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#1f2937' }}>
+                {stats.users.teachers || 0}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>مدرسين نشطين</div>
+            </div>
+          </div>
+
+          {/* Monthly Revenue */}
+          {financials?.monthlyRevenue && financials.monthlyRevenue.length > 0 && (
+            <div style={{
+              background: 'white',
+              borderRadius: '1rem',
+              padding: '1.5rem',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              border: '1px solid #e5e7eb'
+            }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                marginBottom: '1rem',
+                color: '#1f2937'
+              }}>
+                📊 الإيرادات الشهرية
+              </h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '0.9375rem'
+                }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ padding: '0.75rem', textAlign: 'right', color: '#6b7280' }}>الشهر</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center', color: '#6b7280' }}>التسجيلات</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center', color: '#6b7280' }}>المبيعات</th>
+                      <th style={{ padding: '0.75rem', textAlign: 'center', color: '#10b981' }}>أرباح المنصة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {financials.monthlyRevenue.map(item => (
+                      <tr key={item.month} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '0.75rem', fontWeight: 600 }}>
+                          {new Date(item.month + '-01').toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' })}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                          {item.enrollments}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 600 }}>
+                          {item.revenue.toFixed(2)} د.ت
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center', color: '#10b981', fontWeight: 700 }}>
+                          {item.platformEarnings.toFixed(2)} د.ت
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -2261,7 +2936,7 @@ function EnrollmentItem({ enrollment, onAction, processing }) {
           }}>
             <span>📅 {new Date(enrollment.created_at).toLocaleDateString('ar-TN')}</span>
             {paymentProof && paymentProof.payment_method && (
-              <span>💳 {paymentProof.payment_method === 'bank' ? 'تحويل بنكي' : paymentProof.payment_method === 'mobile' ? 'دفع محمول' : paymentProof.payment_method === 'cash' ? 'نقدي' : paymentProof.payment_method}</span>
+              <span>💳 {paymentProof.payment_method === 'bank' ? 'تحويل بنكي' : paymentProof.payment_method === 'mobile' ? 'دفع محمول' : paymentProof.payment_method === 'cash' ? 'نقدي' : paymentProof.payment_method === 'dodo' ? 'VISA/MASTERCARD (DODO)' : paymentProof.payment_method}</span>
             )}
           </div>
           

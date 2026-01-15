@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAlert } from '../context/AlertContext'
 import { 
@@ -16,7 +16,8 @@ import {
   checkCourseLike,
   setCourseRating,
   getCourseRating,
-  createReport
+  createReport,
+  createDodoCheckout
 } from '../lib/api'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -179,6 +180,7 @@ function LessonItem({ lesson, canAccess, isActive, lessonNumber, onLessonClick, 
 function CourseDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { showSuccess, showError, showWarning } = useAlert()
   const [course, setCourse] = useState(null)
@@ -206,6 +208,51 @@ function CourseDetail() {
       loadCourse()
     }
   }, [id])
+
+  // Check for payment status from DODO redirect
+  useEffect(() => {
+    const paymentMethodParam = searchParams.get('payment_method')
+    const checkEnrollmentParam = searchParams.get('check_enrollment')
+    
+    if (paymentMethodParam === 'dodo' && checkEnrollmentParam === 'true' && user?.id) {
+      // Check actual enrollment status from database
+      const verifyPayment = async () => {
+        try {
+          // Wait a moment for webhook to process
+          await new Promise(resolve => setTimeout(resolve, 1500))
+          
+          // Check enrollment status
+          const enrollmentResult = await checkEnrollment()
+          
+          if (enrollmentResult?.status === 'approved') {
+            showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
+            setShowEnrollModal(false)
+            setEnrollStep(1)
+          } else if (enrollmentResult?.status === 'pending') {
+            showSuccess('تم استلام الدفع! جاري معالجة التسجيل...')
+            // Check again after 3 seconds
+            setTimeout(async () => {
+              const result = await checkEnrollment()
+              if (result?.status === 'approved') {
+                showSuccess('تم تأكيد التسجيل!')
+              }
+            }, 3000)
+          } else {
+            // No enrollment found - payment likely failed
+            showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
+          }
+        } catch (err) {
+          console.error('Error verifying payment:', err)
+          showError('حدث خطأ في التحقق من الدفع. يرجى التحقق من حالة التسجيل.')
+        }
+        // Remove query params
+        setSearchParams({})
+      }
+      
+      verifyPayment()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, user?.id])
 
   useEffect(() => {
     if (course && user?.id) {
@@ -376,9 +423,34 @@ function CourseDetail() {
     }
   }
 
-  const handleEnrollStep1 = () => {
-    // Move to step 2: Upload receipt
-    setEnrollStep(2)
+  const handleEnrollStep1 = async () => {
+    // If DODO payment, redirect to checkout
+    if (paymentMethod === 'dodo') {
+      if (!user) {
+        navigate('/login')
+        return
+      }
+
+      try {
+        setSubmitting(true)
+        const checkoutUrl = await createDodoCheckout({
+          courseId: id,
+          courseTitle: course?.title || 'Course',
+          coursePrice: parseFloat(course?.price || 0),
+          userEmail: user?.email || ''
+        })
+        
+        // Redirect to DODO checkout
+        window.location.href = checkoutUrl
+      } catch (err) {
+        showError('خطأ في إنشاء جلسة الدفع: ' + err.message)
+        console.error('Error creating DODO checkout:', err)
+        setSubmitting(false)
+      }
+    } else {
+      // Move to step 2: Upload receipt for other payment methods
+      setEnrollStep(2)
+    }
   }
 
   const handleEnrollSubmit = async () => {
@@ -764,7 +836,7 @@ function CourseDetail() {
   }
   
   const currentVideoUrl = convertToEmbedUrl(rawVideoUrl)
-  console.log('[CourseDetail] Video URL:', { raw: rawVideoUrl, converted: currentVideoUrl })
+  // Debug log removed to reduce console spam
   
   const totalLessons = course?.modules?.reduce((acc, module) => {
     return acc + (module.lessons?.filter(l => !l.is_trailer).length || 0)
@@ -1972,7 +2044,8 @@ function CourseDetail() {
                   {[
                     { value: 'bank', label: 'تحويل بنكي', icon: '🏦' },
                     { value: 'mobile', label: 'دفع محمول', icon: '📱' },
-                    { value: 'cash', label: 'نقدي', icon: '💵' }
+                    { value: 'cash', label: 'نقدي', icon: '💵' },
+                    { value: 'dodo', label: 'VISA/MASTERCARD', icon: '💳', description: 'دفع دولي' }
                   ].map((method) => (
                     <button
                       key={method.value}
@@ -2011,6 +2084,15 @@ function CourseDetail() {
                       }}>
                         {method.label}
                       </span>
+                      {method.description && (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: '#6b7280',
+                          fontWeight: 400
+                        }}>
+                          {method.description}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -2034,7 +2116,9 @@ function CourseDetail() {
                     color: '#374151',
                     lineHeight: '1.6'
                   }}>
-                    بعد اختيار طريقة الدفع، ستتمكن من رفع إثبات الدفع في الخطوة التالية
+                    {paymentMethod === 'dodo' 
+                      ? 'سيتم توجيهك إلى صفحة الدفع الآمنة لإتمام عملية الدفع'
+                      : 'بعد اختيار طريقة الدفع، ستتمكن من رفع إثبات الدفع في الخطوة التالية'}
                   </div>
                 </div>
 
@@ -2058,8 +2142,9 @@ function CourseDetail() {
                     onClick={handleEnrollStep1}
                     className="btn-gradient"
                     style={{ padding: '0.75rem 2rem' }}
+                    disabled={submitting}
                   >
-                    التالي
+                    {submitting ? 'جاري التحميل...' : (paymentMethod === 'dodo' ? 'الانتقال إلى الدفع' : 'التالي')}
                   </button>
                 </div>
               </div>
@@ -2093,6 +2178,7 @@ function CourseDetail() {
                     {paymentMethod === 'bank' && '🏦 تحويل بنكي'}
                     {paymentMethod === 'mobile' && '📱 دفع محمول'}
                     {paymentMethod === 'cash' && '💵 نقدي'}
+                    {paymentMethod === 'dodo' && '💳 VISA/MASTERCARD'}
                   </div>
                 </div>
 

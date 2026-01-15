@@ -1374,3 +1374,292 @@ export const validateVideoAccess = async (studentId, courseId) => {
     return false
   }
 }
+
+// ============ ADMIN DASHBOARD APIs ============
+
+// Get all users (students and teachers) for admin
+export const getAllUsersForAdmin = async () => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
+  if (error) throw error
+  return data || []
+}
+
+// Get all teachers with their earnings for admin
+export const getAllTeachersWithEarnings = async () => {
+  // Get all creators/teachers
+  const { data: teachers, error: teachersError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'creator')
+    .order('created_at', { ascending: false })
+  
+  if (teachersError) throw teachersError
+  if (!teachers || teachers.length === 0) return []
+
+  // Get platform fee
+  let platformFeePercent = 0.1
+  try {
+    const settings = await getPlatformSettings()
+    platformFeePercent = parseFloat(settings.platform_fee_percent) || 0.1
+  } catch (err) {
+    console.warn('Failed to get platform settings:', err)
+  }
+
+  // Get all courses with their creators
+  const { data: allCourses, error: coursesError } = await supabase
+    .from('courses')
+    .select('id, creator_id, price')
+  
+  if (coursesError) throw coursesError
+
+  // Get all approved enrollments
+  const { data: allEnrollments, error: enrollmentsError } = await supabase
+    .from('enrollments')
+    .select('id, course_id, created_at')
+    .eq('status', 'approved')
+  
+  if (enrollmentsError) throw enrollmentsError
+
+  // Get all payout requests
+  const { data: allPayouts, error: payoutsError } = await supabase
+    .from('payout_requests')
+    .select('id, creator_id, amount, status')
+  
+  if (payoutsError) throw payoutsError
+
+  // Calculate earnings for each teacher
+  const teachersWithEarnings = teachers.map(teacher => {
+    const teacherCourses = allCourses?.filter(c => c.creator_id === teacher.id) || []
+    const courseIds = teacherCourses.map(c => c.id)
+    const coursePriceMap = {}
+    teacherCourses.forEach(c => {
+      coursePriceMap[c.id] = parseFloat(c.price) || 0
+    })
+
+    // Calculate total earnings from enrollments
+    const teacherEnrollments = allEnrollments?.filter(e => courseIds.includes(e.course_id)) || []
+    let totalEarnings = 0
+    let platformFees = 0
+
+    teacherEnrollments.forEach(enrollment => {
+      const coursePrice = coursePriceMap[enrollment.course_id] || 0
+      const fee = coursePrice * platformFeePercent
+      totalEarnings += coursePrice
+      platformFees += fee
+    })
+
+    const netEarnings = totalEarnings - platformFees
+
+    // Calculate paid out and pending payouts
+    const teacherPayouts = allPayouts?.filter(p => p.creator_id === teacher.id) || []
+    const paidOut = teacherPayouts
+      .filter(p => p.status === 'approved' || p.status === 'done')
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+    const pendingPayout = teacherPayouts
+      .filter(p => p.status === 'pending')
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+
+    // Available balance = net earnings - paid out - pending
+    const availableBalance = netEarnings - paidOut - pendingPayout
+
+    return {
+      ...teacher,
+      coursesCount: teacherCourses.length,
+      studentsCount: teacherEnrollments.length,
+      totalEarnings,
+      platformFees,
+      netEarnings,
+      paidOut,
+      pendingPayout,
+      availableBalance: Math.max(0, availableBalance)
+    }
+  })
+
+  return teachersWithEarnings
+}
+
+// Get all students for admin
+export const getAllStudentsForAdmin = async () => {
+  // Get all students
+  const { data: students, error: studentsError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'student')
+    .order('created_at', { ascending: false })
+  
+  if (studentsError) throw studentsError
+  if (!students || students.length === 0) return []
+
+  // Get enrollments for each student
+  const { data: allEnrollments, error: enrollmentsError } = await supabase
+    .from('enrollments')
+    .select('id, student_id, course_id, status, created_at, courses(id, title, price)')
+  
+  if (enrollmentsError) throw enrollmentsError
+
+  // Enhance students with enrollment data
+  const studentsWithEnrollments = students.map(student => {
+    const studentEnrollments = allEnrollments?.filter(e => e.student_id === student.id) || []
+    const approvedEnrollments = studentEnrollments.filter(e => e.status === 'approved')
+    const totalSpent = approvedEnrollments.reduce((sum, e) => {
+      return sum + (parseFloat(e.courses?.price) || 0)
+    }, 0)
+
+    return {
+      ...student,
+      enrollmentsCount: studentEnrollments.length,
+      approvedEnrollments: approvedEnrollments.length,
+      totalSpent
+    }
+  })
+
+  return studentsWithEnrollments
+}
+
+// Get platform financial overview for admin
+export const getPlatformFinancials = async () => {
+  // Get platform fee
+  let platformFeePercent = 0.1
+  try {
+    const settings = await getPlatformSettings()
+    platformFeePercent = parseFloat(settings.platform_fee_percent) || 0.1
+  } catch (err) {
+    console.warn('Failed to get platform settings:', err)
+  }
+
+  // Get all courses
+  const { data: courses, error: coursesError } = await supabase
+    .from('courses')
+    .select('id, price, creator_id, status')
+  
+  if (coursesError) throw coursesError
+
+  // Get all approved enrollments with course info
+  const { data: enrollments, error: enrollmentsError } = await supabase
+    .from('enrollments')
+    .select('id, course_id, created_at, status')
+    .eq('status', 'approved')
+  
+  if (enrollmentsError) throw enrollmentsError
+
+  // Get all payout requests
+  const { data: payouts, error: payoutsError } = await supabase
+    .from('payout_requests')
+    .select('id, amount, status, submitted_at')
+  
+  if (payoutsError) throw payoutsError
+
+  // Create course price map
+  const coursePriceMap = {}
+  courses?.forEach(c => {
+    coursePriceMap[c.id] = parseFloat(c.price) || 0
+  })
+
+  // Calculate total revenue and platform earnings
+  let totalRevenue = 0
+  let platformEarnings = 0
+  let teacherEarnings = 0
+  const monthlyRevenue = {}
+
+  enrollments?.forEach(enrollment => {
+    const coursePrice = coursePriceMap[enrollment.course_id] || 0
+    const platformFee = coursePrice * platformFeePercent
+    
+    totalRevenue += coursePrice
+    platformEarnings += platformFee
+    teacherEarnings += (coursePrice - platformFee)
+
+    // Monthly breakdown
+    const month = new Date(enrollment.created_at).toISOString().slice(0, 7) // YYYY-MM
+    if (!monthlyRevenue[month]) {
+      monthlyRevenue[month] = { revenue: 0, platformEarnings: 0, enrollments: 0 }
+    }
+    monthlyRevenue[month].revenue += coursePrice
+    monthlyRevenue[month].platformEarnings += platformFee
+    monthlyRevenue[month].enrollments += 1
+  })
+
+  // Payout stats
+  const totalPaidOut = payouts
+    ?.filter(p => p.status === 'approved' || p.status === 'done')
+    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) || 0
+  
+  const pendingPayouts = payouts
+    ?.filter(p => p.status === 'pending')
+    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) || 0
+
+  return {
+    totalRevenue,
+    platformEarnings,
+    teacherEarnings,
+    totalPaidOut,
+    pendingPayouts,
+    platformFeePercent: platformFeePercent * 100,
+    totalEnrollments: enrollments?.length || 0,
+    totalCourses: courses?.length || 0,
+    publishedCourses: courses?.filter(c => c.status === 'approved' || c.status === 'published').length || 0,
+    monthlyRevenue: Object.entries(monthlyRevenue)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 12)
+      .map(([month, data]) => ({ month, ...data }))
+  }
+}
+
+// DODO Payments API
+export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, userEmail }) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('يجب تسجيل الدخول أولاً')
+    }
+
+    // Call the edge function to create DODO checkout
+    const { data, error } = await supabase.functions.invoke('dodo-checkout', {
+      body: {
+        course_id: courseId,
+        course_title: courseTitle,
+        course_price: coursePrice,
+        user_email: userEmail,
+        user_id: session.user.id
+      }
+    })
+
+    if (error) {
+      console.error('Supabase function error:', error)
+      throw new Error(error.message || 'فشل في إنشاء جلسة الدفع')
+    }
+    
+    // Check if there's a DODO error in the response
+    if (data?.error) {
+      console.error('DODO checkout error:', data)
+      let errorMsg = data.message || data.error
+      if (data.dodo_error) {
+        // Try to extract a user-friendly error message
+        if (typeof data.dodo_error === 'string') {
+          errorMsg = data.dodo_error
+        } else if (data.dodo_error.message) {
+          errorMsg = data.dodo_error.message
+        } else if (data.dodo_error.error) {
+          errorMsg = data.dodo_error.error
+        } else {
+          errorMsg = `خطأ من DODO: ${JSON.stringify(data.dodo_error)}`
+        }
+      }
+      throw new Error(errorMsg)
+    }
+    
+    if (!data?.checkout_url) {
+      console.error('No checkout URL in response:', data)
+      throw new Error('فشل في إنشاء جلسة الدفع - لا يوجد رابط الدفع')
+    }
+
+    return data.checkout_url
+  } catch (err) {
+    console.error('Error creating DODO checkout:', err)
+    throw err
+  }
+}

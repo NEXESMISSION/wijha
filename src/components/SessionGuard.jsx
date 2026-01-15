@@ -21,6 +21,12 @@ export default function SessionGuard({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   
+  // IMPORTANT: Call ALL useRef hooks BEFORE any conditional returns
+  // React requires hooks to be called in the exact same order every render
+  const hasShownMessage = useRef(false)
+  const lastLogoutMessage = useRef(null)
+  const isValidatingRef = useRef(false)
+  
   // If auth context is not available, return children without guard
   // But all hooks have been called, so React is happy
   if (!auth) {
@@ -34,9 +40,6 @@ export default function SessionGuard({ children }) {
   const user = auth?.user || null
   const validateSession = auth?.validateSession || (async () => ({ isValid: true }))
   const showWarning = alert?.showWarning || (() => {})
-  const hasShownMessage = useRef(false)
-  const lastLogoutMessage = useRef(null)
-  const isValidatingRef = useRef(false)
 
   // Validate session on route changes (when user navigates between pages)
   // This ensures users are logged out immediately if another device logged in
