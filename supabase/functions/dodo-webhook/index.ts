@@ -110,26 +110,86 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get event type - DODO might use different formats
-    const eventType = event.event_type || event.type || '';
+    // Check multiple possible locations for event type
+    const eventType = event.event_type || event.type || event.event || '';
+    const paymentStatus = event.data?.status || event.status || event.payment?.status || '';
     
-    // Handle different event types
-    if (eventType === 'payment.succeeded' || eventType === 'payment_succeeded' || event.status === 'succeeded') {
-      const metadata = event.data?.metadata || event.metadata || {};
-      const userId = metadata.user_id;
-      const courseId = metadata.course_id;
-      const paymentId = event.data?.payment_id || event.payment_id;
+    console.log('Event details:', {
+      eventType,
+      paymentStatus,
+      eventKeys: Object.keys(event),
+      hasData: !!event.data,
+      hasPayment: !!event.payment
+    });
+    
+    // Handle different event types - check both event type and payment status
+    const isPaymentSucceeded = 
+      eventType === 'payment.succeeded' || 
+      eventType === 'payment_succeeded' || 
+      eventType === 'checkout.session.completed' ||
+      paymentStatus === 'succeeded' || 
+      paymentStatus === 'completed' ||
+      paymentStatus === 'paid';
+    
+    if (isPaymentSucceeded) {
+      // Try multiple locations for metadata
+      const metadata = event.data?.metadata || 
+                      event.metadata || 
+                      event.payment?.metadata ||
+                      event.checkout?.metadata ||
+                      event.data?.checkout?.metadata ||
+                      {};
+      
+      // Try multiple locations for payment ID
+      const paymentId = event.data?.payment_id || 
+                       event.payment_id || 
+                       event.payment?.id ||
+                       event.data?.id ||
+                       event.id ||
+                       'unknown';
+      
+      // Extract user_id and course_id from metadata
+      let userId = metadata.user_id;
+      let courseId = metadata.course_id;
 
-      console.log('Payment succeeded:', { userId, courseId, paymentId, metadata });
+      console.log('Payment succeeded - initial check:', { userId, courseId, paymentId, metadata });
 
+      // If metadata is missing, try alternative locations
       if (!userId || !courseId) {
-        console.error('Missing required metadata in webhook:', metadata);
-        return new Response(
-          JSON.stringify({ error: 'Missing required metadata', received: metadata }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
+        console.log('Metadata missing, trying alternative locations...');
+        
+        // Try to extract from checkout session if available
+        const checkoutMetadata = event.data?.checkout?.metadata || event.checkout?.metadata || {};
+        const fallbackUserId = checkoutMetadata.user_id || metadata.user_id;
+        const fallbackCourseId = checkoutMetadata.course_id || metadata.course_id;
+        
+        if (fallbackUserId && fallbackCourseId) {
+          userId = fallbackUserId;
+          courseId = fallbackCourseId;
+          console.log('Using fallback metadata:', { userId, courseId });
+        } else {
+          console.error('Missing required metadata in webhook:', {
+            metadata,
+            checkoutMetadata,
+            eventKeys: Object.keys(event),
+            eventData: event.data,
+            eventPayment: event.payment,
+            fullEvent: JSON.stringify(event, null, 2)
+          });
+          
+          return new Response(
+            JSON.stringify({ 
+              error: 'Missing required metadata', 
+              received: { metadata, checkoutMetadata },
+              event_structure: Object.keys(event),
+              help: 'Please ensure metadata with user_id and course_id is included in checkout session'
+            }),
+            {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
       }
 
       // Check if enrollment already exists
