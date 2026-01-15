@@ -192,6 +192,79 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Check if profile exists - if not, create it
+      const { data: existingProfile, error: profileCheckError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+        console.error('Error checking profile:', profileCheckError);
+        // Continue anyway - try to create profile
+      }
+
+      // If profile doesn't exist, create it
+      if (!existingProfile) {
+        console.log('Profile not found, creating profile for user:', userId);
+        
+        // Get user email from auth.users or metadata
+        const userEmail = metadata.user_email || event.data?.customer?.email || event.customer?.email || '';
+        
+        try {
+          const { data: newProfile, error: profileCreateError } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              email: userEmail,
+              name: metadata.user_name || userEmail.split('@')[0] || 'User',
+              role: 'student', // Default to student for DODO payments
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (profileCreateError) {
+            console.error('Error creating profile:', profileCreateError);
+            // If it's a unique constraint violation, profile might have been created by another process
+            if (profileCreateError.code === '23505' || profileCreateError.message?.includes('duplicate key')) {
+              console.log('Profile creation failed due to duplicate, continuing...');
+            } else {
+              // Return error if profile creation fails (except duplicate)
+              return new Response(
+                JSON.stringify({ 
+                  error: 'Failed to create user profile',
+                  details: profileCreateError.message,
+                  code: profileCreateError.code
+                }),
+                {
+                  status: 500,
+                  headers: { 'Content-Type': 'application/json' },
+                }
+              );
+            }
+          } else {
+            console.log('Profile created successfully:', newProfile.id);
+          }
+        } catch (profileErr) {
+          console.error('Exception creating profile:', profileErr);
+          // If duplicate, continue; otherwise return error
+          if (!profileErr.message?.includes('duplicate') && !profileErr.message?.includes('unique constraint')) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'Failed to create user profile',
+                details: profileErr.message
+              }),
+              {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            );
+          }
+        }
+      }
+
       // Check if enrollment already exists
       const { data: existingEnrollment } = await supabase
         .from('enrollments')
