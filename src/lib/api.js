@@ -1612,44 +1612,49 @@ export const getPlatformFinancials = async () => {
 // DODO Payments API
 export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, userEmail }) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
+    // Get and refresh session to ensure we have a valid token
+    let { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
     if (!session) {
       throw new Error('يجب تسجيل الدخول أولاً')
     }
 
-    // Get Supabase URL and anon key for function URL
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-    
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured')
+    // Try to refresh the session to ensure token is valid
+    try {
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+      if (!refreshError && refreshedSession) {
+        session = refreshedSession
+      }
+    } catch (refreshErr) {
+      // If refresh fails, use original session
+      console.warn('Session refresh failed, using existing session:', refreshErr)
     }
 
-    // Call the edge function directly with fetch to ensure Authorization header is included
-    const functionUrl = `${supabaseUrl}/functions/v1/dodo-checkout`
-    
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': supabaseAnonKey
-      },
-      body: JSON.stringify({
+    if (!session?.access_token) {
+      throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة تسجيل الدخول.')
+    }
+
+    // Use Supabase client's invoke method which handles auth automatically
+    // This is more reliable than manual fetch
+    const { data, error } = await supabase.functions.invoke('dodo-checkout', {
+      body: {
         course_id: courseId,
         course_title: courseTitle,
         course_price: coursePrice,
         user_email: userEmail,
         user_id: session.user.id
-      })
+      }
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+    if (error) {
+      console.error('Supabase function error:', error)
+      // Try to extract detailed error message
+      let errorMsg = error.message || 'فشل في إنشاء جلسة الدفع'
+      if (error.context?.msg) {
+        errorMsg = error.context.msg
+      }
+      throw new Error(errorMsg)
     }
-
-    const data = await response.json()
     
     // Check if there's a DODO error in the response
     if (data?.error) {

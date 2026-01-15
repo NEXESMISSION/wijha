@@ -114,14 +114,28 @@ Deno.serve(async (req: Request) => {
     
     // Verify user is authenticated
     const authToken = authHeader.replace('Bearer ', '');
+    console.log('Validating token:', {
+      hasToken: !!authToken,
+      tokenLength: authToken?.length,
+      tokenPrefix: authToken?.substring(0, 20) + '...'
+    });
+    
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(authToken);
 
     // Create service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (userError || !user) {
+      console.error('Token validation failed:', {
+        error: userError?.message || 'No user returned',
+        errorCode: userError?.status,
+        hasUser: !!user
+      });
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ 
+          error: 'Unauthorized',
+          details: userError?.message || 'Token validation failed'
+        }),
         {
           status: 401,
           headers: {
@@ -131,6 +145,8 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+    
+    console.log('Token validated successfully for user:', user.id);
 
     // Parse request body
     const { course_id, course_title, course_price, user_email, user_id }: CheckoutPayload = await req.json();
