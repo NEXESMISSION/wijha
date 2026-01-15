@@ -1680,9 +1680,20 @@ export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, u
       console.error('DODO checkout error response:', {
         status: response.status,
         statusText: response.statusText,
-        data: data
+        data: data,
+        fullError: JSON.stringify(data, null, 2)
       })
-      throw new Error(data?.error || data?.details || `HTTP ${response.status}: ${response.statusText}`)
+      
+      // Extract detailed error message
+      let errorMsg = data?.error || data?.details || data?.message || `HTTP ${response.status}: ${response.statusText}`
+      if (data?.hint) {
+        errorMsg += ` (${data.hint})`
+      }
+      if (data?.receivedHeaders) {
+        console.error('Received headers in Edge Function:', data.receivedHeaders)
+      }
+      
+      throw new Error(errorMsg)
     }
     
     // Check if there's a DODO error in the response

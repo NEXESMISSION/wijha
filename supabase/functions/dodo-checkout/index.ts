@@ -96,19 +96,25 @@ Deno.serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
     // Debug: Log all headers to see what we're receiving
+    const allHeaders = Object.fromEntries(req.headers.entries());
     console.log('Request headers:', {
-      authorization: req.headers.get('Authorization') ? 'present' : 'missing',
+      authorization: req.headers.get('Authorization') || req.headers.get('authorization') ? 'present' : 'missing',
       apikey: req.headers.get('apikey') ? 'present' : 'missing',
       contentType: req.headers.get('Content-Type'),
-      allHeaders: Object.fromEntries(req.headers.entries())
+      allHeaders: allHeaders
     });
     
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
+    // Get authorization header - check both cases (some systems normalize to lowercase)
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     if (!authHeader) {
       console.error('No Authorization header found in request');
+      console.error('Available headers:', Object.keys(allHeaders));
       return new Response(
-        JSON.stringify({ error: 'No authorization header', receivedHeaders: Object.keys(Object.fromEntries(req.headers.entries())) }),
+        JSON.stringify({ 
+          error: 'No authorization header', 
+          receivedHeaders: Object.keys(allHeaders),
+          hint: 'Check if Authorization header is being sent correctly'
+        }),
         {
           status: 401,
           headers: {
