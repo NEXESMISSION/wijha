@@ -17,7 +17,8 @@ import {
   setCourseRating,
   getCourseRating,
   createReport,
-  createDodoCheckout
+  createDodoCheckout,
+  createManualDodoEnrollment
 } from '../lib/api'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -328,11 +329,30 @@ function CourseDetail() {
           } else {
             // No enrollment found after all retries - webhook might not have fired
             console.error('[CourseDetail] No enrollment found after all retries. Payment succeeded but enrollment not created.')
-            console.error('[CourseDetail] This might indicate a webhook issue. Check Supabase logs.')
+            console.error('[CourseDetail] Attempting manual enrollment creation as fallback...')
             
-            // Don't show error - instead show a message asking user to check dashboard
-            // The payment succeeded, so enrollment should be created by webhook
-            showError('تم الدفع بنجاح، لكن لم يتم العثور على التسجيل بعد. يرجى التحقق من لوحة التحكم أو الاتصال بالدعم.')
+            // Try to manually create enrollment as fallback
+            try {
+              const manualEnrollResult = await createManualDodoEnrollment({
+                courseId: id,
+                paymentId: null // We don't have payment ID from redirect
+              })
+              
+              if (manualEnrollResult?.success && manualEnrollResult?.enrollment_id) {
+                console.log('[CourseDetail] Manual enrollment created successfully:', manualEnrollResult.enrollment_id)
+                // Refresh enrollment status
+                await checkEnrollment()
+                showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
+                setShowEnrollModal(false)
+                setEnrollStep(1)
+              } else {
+                throw new Error('Manual enrollment failed')
+              }
+            } catch (manualEnrollError) {
+              console.error('[CourseDetail] Manual enrollment failed:', manualEnrollError)
+              // Show error message
+              showError('تم الدفع بنجاح، لكن لم يتم العثور على التسجيل بعد. يرجى التحقق من لوحة التحكم أو الاتصال بالدعم.')
+            }
           }
         } catch (err) {
           console.error('[CourseDetail] Error verifying payment:', err)

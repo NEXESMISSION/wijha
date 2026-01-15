@@ -1663,3 +1663,35 @@ export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, u
     throw err
   }
 }
+
+// Manual enrollment creation as fallback if webhook fails
+export const createManualDodoEnrollment = async ({ courseId, paymentId }) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('يجب تسجيل الدخول أولاً')
+    }
+
+    // Call the edge function to manually create enrollment
+    const { data, error } = await supabase.functions.invoke('dodo-manual-enroll', {
+      body: {
+        course_id: courseId,
+        payment_id: paymentId || null
+      }
+    })
+
+    if (error) {
+      console.error('Supabase function error:', error)
+      throw new Error(error.message || 'فشل في إنشاء التسجيل')
+    }
+    
+    if (data?.error) {
+      throw new Error(data.error || 'فشل في إنشاء التسجيل')
+    }
+
+    return data
+  } catch (err) {
+    console.error('Error creating DODO checkout:', err)
+    throw err
+  }
+}
