@@ -27,7 +27,30 @@ Deno.serve(async (req: Request) => {
     // Get environment variables
     const dodoApiKey = Deno.env.get('DODO_PAYMENTS_API_KEY');
     const dodoProductId = Deno.env.get('DODO_PRODUCT_ID');
-    const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') || Deno.env.get('VITE_APP_URL') || 'http://localhost:3000';
+    
+    // Get app URL from environment or request origin
+    // Priority: 1. Environment variable, 2. Request origin header, 3. Fallback (should not happen in production)
+    const origin = req.headers.get('Origin') || req.headers.get('Referer');
+    let appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') || Deno.env.get('VITE_APP_URL');
+    
+    if (!appUrl && origin) {
+      // Extract base URL from origin/referer (remove path)
+      try {
+        const url = new URL(origin);
+        appUrl = `${url.protocol}//${url.host}`;
+      } catch (e) {
+        // If parsing fails, use origin as-is
+        appUrl = origin.split('/').slice(0, 3).join('/');
+      }
+    }
+    
+    // Only use localhost as fallback if we're in development
+    // In production, this should be set via environment variable
+    if (!appUrl) {
+      console.warn('WARNING: No app URL configured. Using localhost fallback. Set NEXT_PUBLIC_APP_URL or VITE_APP_URL in Supabase secrets.');
+      appUrl = 'http://localhost:3000';
+    }
+    
     const dodoApiUrl = Deno.env.get('DODO_PAYMENTS_API_URL') || 'https://test.dodopayments.com';
 
     console.log('Environment check:', {

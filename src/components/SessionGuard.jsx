@@ -104,6 +104,7 @@ export default function SessionGuard({ children }) {
   useEffect(() => {
     // PRIORITY 1: If user is logged in, IMMEDIATELY clear any stale logout message
     // This prevents showing logout message after successful login
+    // Also prevent showing message if user just logged in (within last 5 seconds)
     if (user) {
       if (logoutMessage && clearLogoutMessage) {
         clearLogoutMessage()
@@ -111,6 +112,14 @@ export default function SessionGuard({ children }) {
       hasShownMessage.current = false
       lastLogoutMessage.current = null
       return // Exit early - user is logged in, no message needed
+    }
+    
+    // PRIORITY 1.5: Don't show logout message if there's no actual logout message
+    // This prevents showing empty or stale messages
+    if (!logoutMessage) {
+      hasShownMessage.current = false
+      lastLogoutMessage.current = null
+      return
     }
     
     // PRIORITY 2: Don't show logout message on login/signup pages (user is already logging in)

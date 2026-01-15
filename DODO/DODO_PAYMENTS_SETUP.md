@@ -40,8 +40,11 @@ DODO_PAYMENTS_API_KEY=zYLwbu5myoPtLHFx.AMoFDdn57mXiGzBJSwSkp5gyjWf1cAz8gWVlZl_US
 DODO_WEBHOOK_SECRET=whsec_iocQ675C3ng2rydCqIo+lW7qKOUMupkX
 DODO_PAYMENTS_API_URL=https://test.dodopayments.com  # Use https://api.dodopayments.com for production
 
-# Your application URL (for return URLs)
+# Your application URL (for return URLs) - IMPORTANT: Set this to your production URL
+# The function will try to use this first, then fall back to request origin header
 NEXT_PUBLIC_APP_URL=https://yourdomain.com  # or VITE_APP_URL for Vite
+# Example: NEXT_PUBLIC_APP_URL=https://wijha.netlify.app
+# Example: NEXT_PUBLIC_APP_URL=https://wijha.vercel.app
 ```
 
 ### How to Set Supabase Secrets
@@ -63,7 +66,26 @@ supabase secrets set DODO_WEBHOOK_SECRET=your_webhook_secret_here
 supabase secrets set DODO_PAYMENTS_API_URL=https://test.dodopayments.com
 supabase secrets set DODO_PRODUCT_ID=pdt_0NWJOiCkDHp0N6rNFFxkG
 supabase secrets set VITE_APP_URL=https://yourdomain.com
+# OR use NEXT_PUBLIC_APP_URL instead:
+supabase secrets set NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
+
+**⚠️ IMPORTANT: Production URL Configuration**
+
+The DODO checkout function now automatically detects the production URL from:
+1. Environment variable (`NEXT_PUBLIC_APP_URL` or `VITE_APP_URL`) - **Recommended**
+2. Request origin header (fallback)
+
+**To set your production URL in Supabase:**
+```bash
+# Replace with your actual production URL
+supabase secrets set NEXT_PUBLIC_APP_URL=https://your-actual-domain.com
+```
+
+**Examples:**
+- Netlify: `supabase secrets set NEXT_PUBLIC_APP_URL=https://wijha.netlify.app`
+- Vercel: `supabase secrets set NEXT_PUBLIC_APP_URL=https://wijha.vercel.app`
+- Custom domain: `supabase secrets set NEXT_PUBLIC_APP_URL=https://wijha.com`
 
 ## Step 3: Deploy Edge Functions
 

@@ -449,7 +449,7 @@ function CourseDetail() {
       }
     } else {
       // Move to step 2: Upload receipt for other payment methods
-      setEnrollStep(2)
+    setEnrollStep(2)
     }
   }
 
