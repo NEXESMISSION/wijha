@@ -1682,16 +1682,35 @@ export const createManualDodoEnrollment = async ({ courseId, paymentId }) => {
 
     if (error) {
       console.error('Supabase function error:', error)
-      throw new Error(error.message || 'فشل في إنشاء التسجيل')
+      // Try to extract detailed error from response
+      let errorMessage = error.message || 'فشل في إنشاء التسجيل'
+      if (error.context?.body) {
+        try {
+          const errorBody = JSON.parse(error.context.body)
+          if (errorBody.error) {
+            errorMessage = errorBody.error
+          }
+          if (errorBody.details) {
+            errorMessage += `: ${errorBody.details}`
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+      throw new Error(errorMessage)
     }
     
     if (data?.error) {
-      throw new Error(data.error || 'فشل في إنشاء التسجيل')
+      let errorMessage = data.error
+      if (data.details) {
+        errorMessage += `: ${data.details}`
+      }
+      throw new Error(errorMessage)
     }
 
     return data
   } catch (err) {
-    console.error('Error creating DODO checkout:', err)
+    console.error('Error creating manual DODO enrollment:', err)
     throw err
   }
 }

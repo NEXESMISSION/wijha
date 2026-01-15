@@ -333,10 +333,13 @@ function CourseDetail() {
             
             // Try to manually create enrollment as fallback
             try {
+              console.log('[CourseDetail] Attempting manual enrollment creation...')
               const manualEnrollResult = await createManualDodoEnrollment({
                 courseId: id,
                 paymentId: null // We don't have payment ID from redirect
               })
+              
+              console.log('[CourseDetail] Manual enrollment result:', manualEnrollResult)
               
               if (manualEnrollResult?.success && manualEnrollResult?.enrollment_id) {
                 console.log('[CourseDetail] Manual enrollment created successfully:', manualEnrollResult.enrollment_id)
@@ -346,12 +349,24 @@ function CourseDetail() {
                 setShowEnrollModal(false)
                 setEnrollStep(1)
               } else {
-                throw new Error('Manual enrollment failed')
+                console.error('[CourseDetail] Manual enrollment returned unexpected result:', manualEnrollResult)
+                throw new Error(manualEnrollResult?.error || 'Manual enrollment failed')
               }
             } catch (manualEnrollError) {
-              console.error('[CourseDetail] Manual enrollment failed:', manualEnrollError)
-              // Show error message
-              showError('تم الدفع بنجاح، لكن لم يتم العثور على التسجيل بعد. يرجى التحقق من لوحة التحكم أو الاتصال بالدعم.')
+              console.error('[CourseDetail] Manual enrollment failed:', {
+                error: manualEnrollError,
+                message: manualEnrollError.message,
+                stack: manualEnrollError.stack
+              })
+              
+              // Try to extract error message from response
+              let errorMessage = 'تم الدفع بنجاح، لكن لم يتم العثور على التسجيل بعد.'
+              if (manualEnrollError.message) {
+                errorMessage += ` ${manualEnrollError.message}`
+              }
+              errorMessage += ' يرجى التحقق من لوحة التحكم أو الاتصال بالدعم.'
+              
+              showError(errorMessage)
             }
           }
         } catch (err) {

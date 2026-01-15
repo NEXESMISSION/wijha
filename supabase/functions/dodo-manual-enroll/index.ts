@@ -64,7 +64,25 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { course_id, payment_id } = await req.json();
+    let course_id, payment_id;
+    try {
+      const body = await req.json();
+      course_id = body.course_id;
+      payment_id = body.payment_id;
+      console.log('Request body:', { course_id, payment_id, userId: user.id });
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', details: parseError.message }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
 
     if (!course_id) {
       return new Response(
@@ -157,6 +175,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // CREATE NEW ENROLLMENT
+    console.log('Creating new enrollment:', { student_id: userId, course_id: course_id });
     const { data: newEnrollment, error: enrollError } = await supabase
       .from('enrollments')
       .insert({
@@ -169,8 +188,30 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (enrollError) {
-      console.error('Error creating enrollment:', enrollError);
-      throw enrollError;
+      console.error('Error creating enrollment:', {
+        error: enrollError,
+        code: enrollError.code,
+        message: enrollError.message,
+        details: enrollError.details,
+        hint: enrollError.hint
+      });
+      
+      // Return detailed error for debugging
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to create enrollment',
+          details: enrollError.message,
+          code: enrollError.code,
+          hint: enrollError.hint
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
     }
 
     console.log('New enrollment created and approved:', newEnrollment.id);
@@ -223,9 +264,18 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('Error in dodo-manual-enroll function:', error);
+    console.error('Error in dodo-manual-enroll function:', {
+      error: error,
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message || 'Internal server error',
+        type: error.name || 'UnknownError',
+        details: error.stack || 'No stack trace available'
+      }),
       {
         status: 500,
         headers: {
