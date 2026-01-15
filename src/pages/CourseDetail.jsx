@@ -210,195 +210,57 @@ function CourseDetail() {
     }
   }, [id])
 
-  // Check for payment status from DODO redirect
+  // Check for payment status from DODO redirect - SIMPLIFIED VERSION
   useEffect(() => {
     const paymentMethodParam = searchParams.get('payment_method')
     const checkEnrollmentParam = searchParams.get('check_enrollment')
     
     if (paymentMethodParam === 'dodo' && checkEnrollmentParam === 'true' && user?.id && id) {
-      // Check actual enrollment status from database
-      const verifyPayment = async () => {
+      // Simple flow: Immediately try to create enrollment and show popup
+      const handlePaymentReturn = async () => {
         try {
-          console.log('[CourseDetail] Starting payment verification for course:', id, 'user:', user.id)
-          
-          // Helper function to directly query enrollment from database
-          const directEnrollmentCheck = async () => {
-            try {
-              const { data, error } = await supabase
-                .from('enrollments')
-                .select('*')
-                .eq('student_id', user.id)
-                .eq('course_id', id)
-                .maybeSingle()
-              
-              if (error && error.code !== 'PGRST116') {
-                console.error('[CourseDetail] Direct enrollment query error:', error)
-              }
-              
-              if (data) {
-                console.log('[CourseDetail] Found enrollment via direct query:', data)
-                setEnrollment(data)
-                return data
-              }
-              return null
-            } catch (err) {
-              console.error('[CourseDetail] Direct enrollment check error:', err)
-              return null
-            }
-          }
-          
-          // Retry logic: Check multiple times with delays to account for webhook processing time
-          const maxRetries = 8 // Increased retries
-          const retryDelay = 3000 // 3 seconds between retries
-          let enrollmentResult = null
-          
-          for (let attempt = 0; attempt < maxRetries; attempt++) {
-            // Wait before checking (longer wait on first attempt for webhook to process)
-            if (attempt === 0) {
-              console.log('[CourseDetail] Waiting 5 seconds for webhook to process...')
-              await new Promise(resolve => setTimeout(resolve, 5000)) // Wait 5 seconds first
-            } else {
-              await new Promise(resolve => setTimeout(resolve, retryDelay))
-            }
-            
-            console.log(`[CourseDetail] Checking enrollment (attempt ${attempt + 1}/${maxRetries})...`)
-            
-            // Check enrollment status via function
-            enrollmentResult = await checkEnrollment()
-            
-            // Also try direct database query as fallback
-            if (!enrollmentResult) {
-              enrollmentResult = await directEnrollmentCheck()
-            }
-            
-            console.log(`[CourseDetail] Enrollment result (attempt ${attempt + 1}):`, enrollmentResult)
-            
-            // If enrollment is approved, success!
-            if (enrollmentResult?.status === 'approved') {
-              console.log('[CourseDetail] Enrollment approved! Showing success message.')
-              showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
-              setShowEnrollModal(false)
-              setEnrollStep(1)
-              // Remove query params
-              setSearchParams({})
-              return // Exit early on success
-            }
-            
-            // If enrollment exists but is pending, keep checking
-            if (enrollmentResult?.status === 'pending') {
-              console.log('[CourseDetail] Enrollment pending, will retry...')
-              if (attempt === 0) {
-                showSuccess('تم استلام الدفع! جاري معالجة التسجيل...')
-              }
-              continue // Keep retrying
-            }
-            
-            // If enrollment exists with any status, don't show error (might be processing)
-            if (enrollmentResult) {
-              console.log('[CourseDetail] Enrollment exists with status:', enrollmentResult.status, '- will retry...')
-              continue // Keep retrying
-            }
-            
-            console.log(`[CourseDetail] No enrollment found (attempt ${attempt + 1}), will retry...`)
-          }
-          
-          // After all retries, check one final time with longer delay
-          console.log('[CourseDetail] All retries done, doing final check...')
-          await new Promise(resolve => setTimeout(resolve, 5000))
-          enrollmentResult = await checkEnrollment()
-          
-          // Final direct query
-          if (!enrollmentResult) {
-            enrollmentResult = await directEnrollmentCheck()
-          }
-          
-          console.log('[CourseDetail] Final enrollment check result:', enrollmentResult)
+          // First, check if enrollment already exists (webhook might have created it)
+          const enrollmentResult = await checkEnrollment()
           
           if (enrollmentResult?.status === 'approved') {
+            // Enrollment already exists - success!
             showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
             setShowEnrollModal(false)
             setEnrollStep(1)
-          } else if (enrollmentResult?.status === 'pending') {
-            // Still pending - but enrollment exists, so payment likely succeeded
-            showSuccess('تم استلام الدفع! جاري معالجة التسجيل. سيتم تأكيد التسجيل قريباً.')
-            // Don't show error - enrollment exists, just pending
-          } else if (enrollmentResult) {
-            // Enrollment exists but status is unknown - likely succeeded
-            showSuccess('تم استلام الدفع! يرجى التحقق من حالة التسجيل في لوحة التحكم.')
-            // Don't show error - enrollment exists
+            setSearchParams({})
+            return
+          }
+          
+          // Enrollment doesn't exist - create it manually
+          const manualEnrollResult = await createManualDodoEnrollment({
+            courseId: id,
+            paymentId: null
+          })
+          
+          if (manualEnrollResult?.success && manualEnrollResult?.enrollment_id) {
+            // Success! Enrollment created
+            await checkEnrollment() // Refresh enrollment status
+            showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
+            setShowEnrollModal(false)
+            setEnrollStep(1)
           } else {
-            // No enrollment found after all retries - webhook might not have fired
-            console.error('[CourseDetail] No enrollment found after all retries. Payment succeeded but enrollment not created.')
-            console.error('[CourseDetail] Attempting manual enrollment creation as fallback...')
-            
-            // Try to manually create enrollment as fallback
-            try {
-              console.log('[CourseDetail] Attempting manual enrollment creation...')
-              const manualEnrollResult = await createManualDodoEnrollment({
-                courseId: id,
-                paymentId: null // We don't have payment ID from redirect
-              })
-              
-              console.log('[CourseDetail] Manual enrollment result:', manualEnrollResult)
-              
-              if (manualEnrollResult?.success && manualEnrollResult?.enrollment_id) {
-                console.log('[CourseDetail] Manual enrollment created successfully:', manualEnrollResult.enrollment_id)
-                // Refresh enrollment status
-                await checkEnrollment()
-                showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
-                setShowEnrollModal(false)
-                setEnrollStep(1)
-              } else {
-                console.error('[CourseDetail] Manual enrollment returned unexpected result:', manualEnrollResult)
-                throw new Error(manualEnrollResult?.error || 'Manual enrollment failed')
-              }
-            } catch (manualEnrollError) {
-              console.error('[CourseDetail] Manual enrollment failed:', {
-                error: manualEnrollError,
-                message: manualEnrollError.message,
-                stack: manualEnrollError.stack
-              })
-              
-              // Try to extract error message from response
-              let errorMessage = 'تم الدفع بنجاح، لكن لم يتم العثور على التسجيل بعد.'
-              if (manualEnrollError.message) {
-                errorMessage += ` ${manualEnrollError.message}`
-              }
-              errorMessage += ' يرجى التحقق من لوحة التحكم أو الاتصال بالدعم.'
-              
-              showError(errorMessage)
-            }
+            // Failed to create enrollment
+            showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
           }
-        } catch (err) {
-          console.error('[CourseDetail] Error verifying payment:', err)
-          // Try direct query one more time
-          try {
-            const { data: directEnrollments } = await supabase
-              .from('enrollments')
-              .select('*')
-              .eq('student_id', user.id)
-              .eq('course_id', id)
-              .maybeSingle()
-            
-            if (directEnrollments?.status === 'approved' || directEnrollments) {
-              showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
-              setShowEnrollModal(false)
-              setEnrollStep(1)
-            } else {
-              showError('حدث خطأ في التحقق من الدفع. يرجى التحقق من حالة التسجيل في لوحة التحكم.')
-            }
-          } catch (directQueryError) {
-            showError('حدث خطأ في التحقق من الدفع. يرجى التحقق من حالة التسجيل في لوحة التحكم.')
-          }
+        } catch (error) {
+          // Error occurred - show failure message
+          console.error('[CourseDetail] Payment verification error:', error)
+          showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
         }
+        
         // Remove query params
         setSearchParams({})
       }
       
-      verifyPayment()
+      handlePaymentReturn()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, user?.id])
+  }, [searchParams, user?.id, id])
 
   useEffect(() => {
     if (course && user?.id) {
