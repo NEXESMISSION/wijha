@@ -18,7 +18,8 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', {
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
       },
     });
   }
@@ -94,11 +95,20 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
+    // Debug: Log all headers to see what we're receiving
+    console.log('Request headers:', {
+      authorization: req.headers.get('Authorization') ? 'present' : 'missing',
+      apikey: req.headers.get('apikey') ? 'present' : 'missing',
+      contentType: req.headers.get('Content-Type'),
+      allHeaders: Object.fromEntries(req.headers.entries())
+    });
+    
     // Get authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No Authorization header found in request');
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
+        JSON.stringify({ error: 'No authorization header', receivedHeaders: Object.keys(Object.fromEntries(req.headers.entries())) }),
         {
           status: 401,
           headers: {

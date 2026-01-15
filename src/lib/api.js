@@ -1612,21 +1612,20 @@ export const getPlatformFinancials = async () => {
 // DODO Payments API
 export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, userEmail }) => {
   try {
-    // Get and refresh session to ensure we have a valid token
+    // Get current session
     let { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
     if (!session) {
       throw new Error('يجب تسجيل الدخول أولاً')
     }
 
-    // Try to refresh the session to ensure token is valid
+    // Refresh session to ensure token is valid
     try {
       const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
-      if (!refreshError && refreshedSession) {
+      if (!refreshError && refreshedSession?.access_token) {
         session = refreshedSession
       }
     } catch (refreshErr) {
-      // If refresh fails, use original session
       console.warn('Session refresh failed, using existing session:', refreshErr)
     }
 
@@ -1634,26 +1633,56 @@ export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, u
       throw new Error('انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة تسجيل الدخول.')
     }
 
-    // Use Supabase client's invoke method which handles auth automatically
-    // This is more reliable than manual fetch
-    const { data, error } = await supabase.functions.invoke('dodo-checkout', {
-      body: {
+    // Get Supabase configuration
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Supabase configuration missing')
+    }
+
+    // Use direct fetch with explicit headers - this ensures Authorization is sent
+    const functionUrl = `${supabaseUrl}/functions/v1/dodo-checkout`
+    
+    console.log('Calling DODO checkout:', {
+      url: functionUrl,
+      hasToken: !!session.access_token,
+      tokenLength: session.access_token.length,
+      userId: session.user.id
+    })
+    
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': supabaseAnonKey
+      },
+      body: JSON.stringify({
         course_id: courseId,
         course_title: courseTitle,
         course_price: coursePrice,
         user_email: userEmail,
         user_id: session.user.id
-      }
+      })
     })
 
-    if (error) {
-      console.error('Supabase function error:', error)
-      // Try to extract detailed error message
-      let errorMsg = error.message || 'فشل في إنشاء جلسة الدفع'
-      if (error.context?.msg) {
-        errorMsg = error.context.msg
-      }
-      throw new Error(errorMsg)
+    // Parse response
+    const responseText = await response.text()
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch {
+      throw new Error(`Invalid response: ${responseText}`)
+    }
+
+    if (!response.ok) {
+      console.error('DODO checkout error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: data
+      })
+      throw new Error(data?.error || data?.details || `HTTP ${response.status}: ${response.statusText}`)
     }
     
     // Check if there's a DODO error in the response
