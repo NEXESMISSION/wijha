@@ -1617,21 +1617,39 @@ export const createDodoCheckout = async ({ courseId, courseTitle, coursePrice, u
       throw new Error('يجب تسجيل الدخول أولاً')
     }
 
-    // Call the edge function to create DODO checkout
-    const { data, error } = await supabase.functions.invoke('dodo-checkout', {
-      body: {
+    // Get Supabase URL and anon key for function URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured')
+    }
+
+    // Call the edge function directly with fetch to ensure Authorization header is included
+    const functionUrl = `${supabaseUrl}/functions/v1/dodo-checkout`
+    
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': supabaseAnonKey
+      },
+      body: JSON.stringify({
         course_id: courseId,
         course_title: courseTitle,
         course_price: coursePrice,
         user_email: userEmail,
         user_id: session.user.id
-      }
+      })
     })
 
-    if (error) {
-      console.error('Supabase function error:', error)
-      throw new Error(error.message || 'فشل في إنشاء جلسة الدفع')
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
     }
+
+    const data = await response.json()
     
     // Check if there's a DODO error in the response
     if (data?.error) {

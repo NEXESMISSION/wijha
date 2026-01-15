@@ -210,20 +210,35 @@ function CourseDetail() {
     }
   }, [id])
 
-  // Check for payment status from DODO redirect - SIMPLIFIED VERSION
+  // Check for payment status from DODO redirect - VERIFIED VERSION
   useEffect(() => {
     const paymentMethodParam = searchParams.get('payment_method')
     const checkEnrollmentParam = searchParams.get('check_enrollment')
     
     if (paymentMethodParam === 'dodo' && checkEnrollmentParam === 'true' && user?.id && id) {
-      // Simple flow: Immediately try to create enrollment and show popup
+      // Verify payment before showing success
       const handlePaymentReturn = async () => {
         try {
           // First, check if enrollment already exists (webhook might have created it)
           const enrollmentResult = await checkEnrollment()
           
           if (enrollmentResult?.status === 'approved') {
-            // Enrollment already exists - success!
+            // Check if payment proof exists to confirm payment succeeded
+            const { data: paymentProofs, error: proofError } = await supabase
+              .from('payment_proofs')
+              .select('*')
+              .eq('enrollment_id', enrollmentResult.id)
+              .eq('payment_method', 'dodo')
+              .limit(1)
+            
+            if (proofError || !paymentProofs || paymentProofs.length === 0) {
+              // No payment proof - payment likely failed
+              showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
+              setSearchParams({})
+              return
+            }
+            
+            // Enrollment exists AND payment proof exists - success!
             showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
             setShowEnrollModal(false)
             setEnrollStep(1)
@@ -231,22 +246,25 @@ function CourseDetail() {
             return
           }
           
-          // Enrollment doesn't exist - create it manually
-          const manualEnrollResult = await createManualDodoEnrollment({
-            courseId: id,
-            paymentId: null
-          })
+          // Enrollment doesn't exist - check if payment was actually made
+          // Wait a bit for webhook to process (if payment succeeded)
+          await new Promise(resolve => setTimeout(resolve, 3000))
           
-          if (manualEnrollResult?.success && manualEnrollResult?.enrollment_id) {
-            // Success! Enrollment created
-            await checkEnrollment() // Refresh enrollment status
+          // Check enrollment again after waiting
+          const enrollmentCheck = await checkEnrollment()
+          
+          if (enrollmentCheck?.status === 'approved') {
+            // Enrollment was created by webhook - success!
             showSuccess('تم الدفع بنجاح! تم تسجيلك في الدورة.')
             setShowEnrollModal(false)
             setEnrollStep(1)
-          } else {
-            // Failed to create enrollment
-            showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
+            setSearchParams({})
+            return
           }
+          
+          // Still no enrollment - payment likely failed
+          // Don't try to create enrollment manually - if payment succeeded, webhook would have created it
+          showError('فشل الدفع أو تم إلغاؤه. يرجى المحاولة مرة أخرى.')
         } catch (error) {
           // Error occurred - show failure message
           console.error('[CourseDetail] Payment verification error:', error)

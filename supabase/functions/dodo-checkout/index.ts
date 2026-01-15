@@ -234,14 +234,7 @@ Deno.serve(async (req: Request) => {
         email: user_email,
         name: userName
       },
-      // Pre-fill billing address for Tunisia (correct field name: billing_address)
-      billing_address: {
-        country: 'TN',  // Tunisia ISO code
-        city: 'Tunis',
-        state: 'Tunis',
-        street: 'Tunisia',
-        zipcode: '1000'
-      },
+      // Don't pre-fill billing address - let user enter manually
       // Feature flags to minimize form fields
       feature_flags: {
         allow_phone_number_collection: false,  // Don't ask for phone
