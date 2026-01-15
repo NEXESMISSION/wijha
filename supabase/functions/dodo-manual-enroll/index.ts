@@ -140,22 +140,31 @@ Deno.serve(async (req: Request) => {
         throw updateError;
       }
 
-      // Create payment proof if it doesn't exist
-      const { data: existingProof } = await supabase
-        .from('payment_proofs')
-        .select('id')
-        .eq('enrollment_id', existingEnrollment.id)
-        .maybeSingle();
-
-      if (!existingProof) {
-        await supabase
+      // Create payment proof if it doesn't exist (optional - don't fail if this errors)
+      try {
+        const { data: existingProof } = await supabase
           .from('payment_proofs')
-          .insert({
-            enrollment_id: existingEnrollment.id,
-            payment_method: 'dodo',
-            text_proof: payment_id ? `DODO Payment ID: ${payment_id}` : 'DODO Payment (Manual Enrollment)',
-            notes: 'Payment confirmed via manual enrollment (webhook may have failed)'
-          });
+          .select('id')
+          .eq('enrollment_id', existingEnrollment.id)
+          .maybeSingle();
+
+        if (!existingProof) {
+          const { error: proofInsertError } = await supabase
+            .from('payment_proofs')
+            .insert({
+              enrollment_id: existingEnrollment.id,
+              payment_method: 'dodo',
+              text_proof: payment_id ? `DODO Payment ID: ${payment_id}` : 'DODO Payment (Manual Enrollment)',
+              notes: 'Payment confirmed via manual enrollment (webhook may have failed)'
+            });
+          
+          if (proofInsertError) {
+            console.error('Error creating payment proof (non-critical):', proofInsertError);
+          }
+        }
+      } catch (proofErr) {
+        console.error('Exception creating payment proof (non-critical):', proofErr);
+        // Don't throw - payment proof is optional
       }
 
       return new Response(
@@ -176,6 +185,61 @@ Deno.serve(async (req: Request) => {
 
     // CREATE NEW ENROLLMENT
     console.log('Creating new enrollment:', { student_id: userId, course_id: course_id });
+    
+    // Double-check enrollment doesn't exist (race condition protection)
+    const { data: doubleCheckEnrollment } = await supabase
+      .from('enrollments')
+      .select('id, status')
+      .eq('student_id', userId)
+      .eq('course_id', course_id)
+      .maybeSingle();
+    
+    if (doubleCheckEnrollment) {
+      console.log('Enrollment found on double-check, updating instead');
+      // Update existing enrollment
+      const { error: updateError } = await supabase
+        .from('enrollments')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', doubleCheckEnrollment.id);
+
+      if (updateError) {
+        console.error('Error updating enrollment:', updateError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to update enrollment',
+            details: updateError.message,
+            code: updateError.code
+          }),
+          {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+          }
+        );
+      }
+      
+      // Return success with existing enrollment
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          enrollment_id: doubleCheckEnrollment.id, 
+          status: 'approved',
+          message: 'Enrollment updated to approved'
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        }
+      );
+    }
+    
     const { data: newEnrollment, error: enrollError } = await supabase
       .from('enrollments')
       .insert({
@@ -195,6 +259,45 @@ Deno.serve(async (req: Request) => {
         details: enrollError.details,
         hint: enrollError.hint
       });
+      
+      // If it's a unique constraint violation, try to get the existing enrollment
+      if (enrollError.code === '23505' || enrollError.message?.includes('duplicate key') || enrollError.message?.includes('unique constraint')) {
+        console.log('Unique constraint violation detected, fetching existing enrollment');
+        const { data: existingEnroll } = await supabase
+          .from('enrollments')
+          .select('id, status')
+          .eq('student_id', userId)
+          .eq('course_id', course_id)
+          .maybeSingle();
+        
+        if (existingEnroll) {
+          // Update it to approved
+          const { error: updateErr } = await supabase
+            .from('enrollments')
+            .update({
+              status: 'approved',
+              approved_at: new Date().toISOString()
+            })
+            .eq('id', existingEnroll.id);
+          
+          if (!updateErr) {
+            return new Response(
+              JSON.stringify({ 
+                success: true, 
+                enrollment_id: existingEnroll.id, 
+                status: 'approved',
+                message: 'Enrollment updated to approved'
+              }),
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*',
+                },
+              }
+            );
+          }
+        }
+      }
       
       // Return detailed error for debugging
       return new Response(
@@ -216,23 +319,31 @@ Deno.serve(async (req: Request) => {
 
     console.log('New enrollment created and approved:', newEnrollment.id);
 
-    // Create payment proof record
-    const { error: proofError } = await supabase
-      .from('payment_proofs')
-      .insert({
-        enrollment_id: newEnrollment.id,
-        payment_method: 'dodo',
-        text_proof: payment_id ? `DODO Payment ID: ${payment_id}` : 'DODO Payment (Manual Enrollment)',
-        notes: 'Payment confirmed via manual enrollment (webhook may have failed)'
-      });
+    // Create payment proof record (optional - don't fail if this errors)
+    try {
+      const { error: proofError } = await supabase
+        .from('payment_proofs')
+        .insert({
+          enrollment_id: newEnrollment.id,
+          payment_method: 'dodo',
+          text_proof: payment_id ? `DODO Payment ID: ${payment_id}` : 'DODO Payment (Manual Enrollment)',
+          notes: 'Payment confirmed via manual enrollment (webhook may have failed)'
+        });
 
-    if (proofError) {
-      console.error('Error creating payment proof:', proofError);
+      if (proofError) {
+        console.error('Error creating payment proof (non-critical):', proofError);
+        // Don't throw - payment proof is optional
+      } else {
+        console.log('Payment proof created successfully');
+      }
+    } catch (proofErr) {
+      console.error('Exception creating payment proof (non-critical):', proofErr);
+      // Don't throw - continue even if payment proof fails
     }
 
-    // Log the successful enrollment
+    // Log the successful enrollment (optional - don't fail if this errors)
     try {
-      await supabase.from('audit_logs').insert({
+      const { error: logError } = await supabase.from('audit_logs').insert({
         user_id: userId,
         event_type: 'ENROLLMENT_CREATED',
         resource_type: 'enrollment',
@@ -245,8 +356,15 @@ Deno.serve(async (req: Request) => {
           reason: 'Webhook may have failed, manual enrollment created'
         }
       });
-    } catch (logError) {
-      console.error('Error logging enrollment event:', logError);
+      
+      if (logError) {
+        console.error('Error logging enrollment event (non-critical):', logError);
+      } else {
+        console.log('Audit log created successfully');
+      }
+    } catch (logErr) {
+      console.error('Exception logging enrollment event (non-critical):', logErr);
+      // Don't throw - audit logging is optional
     }
 
     return new Response(
