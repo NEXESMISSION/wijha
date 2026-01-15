@@ -131,11 +131,9 @@ Deno.serve(async (req: Request) => {
         .from('profiles')
         .insert({
           id: userId,
-          email: user.email || '',
           name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-          role: user.user_metadata?.role || 'student',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          role: user.user_metadata?.role || 'student'
+          // Note: created_at and updated_at are auto-set by database defaults
         })
         .select()
         .single();

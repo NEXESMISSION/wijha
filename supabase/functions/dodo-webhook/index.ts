@@ -208,19 +208,18 @@ Deno.serve(async (req: Request) => {
       if (!existingProfile) {
         console.log('Profile not found, creating profile for user:', userId);
         
-        // Get user email from auth.users or metadata
+        // Get user name from metadata or email
         const userEmail = metadata.user_email || event.data?.customer?.email || event.customer?.email || '';
+        const userName = metadata.user_name || userEmail.split('@')[0] || 'User';
         
         try {
           const { data: newProfile, error: profileCreateError } = await supabase
             .from('profiles')
             .insert({
               id: userId,
-              email: userEmail,
-              name: metadata.user_name || userEmail.split('@')[0] || 'User',
-              role: 'student', // Default to student for DODO payments
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              name: userName,
+              role: 'student' // Default to student for DODO payments
+              // Note: created_at and updated_at are auto-set by database defaults
             })
             .select()
             .single();
